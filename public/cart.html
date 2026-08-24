@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your Cart — MoleQule Prep</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .cart-item{display:flex;gap:14px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line);}
+  .cart-item:last-child{border-bottom:none;}
+  .cart-item .thumb{width:56px;height:56px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:#fff;flex:none;}
+  .cart-item .info{flex:1;min-width:0;}
+  .cart-item .info strong{display:block;font-size:.92rem;}
+  .cart-item .info .desc{font-size:.76rem;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .cart-item .price{font-weight:700;color:var(--accent-strong);white-space:nowrap;}
+  .cart-item .remove-btn{background:none;border:none;color:var(--danger);font-size:.78rem;cursor:pointer;padding:4px;}
+  .summary-row{display:flex;justify-content:space-between;padding:6px 0;font-size:.9rem;}
+  .summary-row.total{font-weight:700;font-size:1.05rem;border-top:1px solid var(--line);margin-top:8px;padding-top:12px;}
+  .pay-btn{width:100%;justify-content:center;margin-top:16px;font-size:.98rem;padding:13px;}
+  .empty-cart{text-align:center;padding:48px 0;color:var(--ink-soft);}
+  .empty-cart .icon{font-size:2.4rem;margin-bottom:10px;}
+  .success-box{text-align:center;padding:32px 20px;}
+  .success-box .icon{font-size:2.6rem;margin-bottom:10px;}
+  .coupon-row{display:flex;gap:8px;margin:14px 0;}
+  .coupon-row input{text-transform:uppercase;}
+  .coupon-row button{flex:none;}
+  .coupon-applied{display:flex;align-items:center;justify-content:space-between;background:var(--accent-tint);color:var(--accent-strong);border-radius:6px;padding:8px 12px;font-size:.85rem;font-weight:600;margin:14px 0;}
+  .coupon-applied button{background:none;border:none;color:var(--accent-strong);text-decoration:underline;cursor:pointer;font-size:.8rem;font-weight:600;box-shadow:none;padding:0;}
+  .summary-row.discount{color:var(--accent-strong);}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="container row between">
+    <a class="brand" href="/home.html"><span class="dot"></span> MoleQule Prep</a>
+    <a href="/home.html" class="small muted" style="text-decoration:none;">&larr; Back to home</a>
+  </div>
+</header>
+
+<main class="container" style="max-width:560px;">
+  <h1>Your Cart</h1>
+  <div id="cart-body">Loading…</div>
+</main>
+
+<script src="/js/api.js"></script>
+<script>
+const THUMB_STYLES = [
+  { bg: "linear-gradient(135deg,#0E7A5F,#0A5C47)", icon: "⚗️" },
+  { bg: "linear-gradient(135deg,#B9791C,#8a5a12)", icon: "🧪" },
+  { bg: "linear-gradient(135deg,#2b6cb0,#1a4971)", icon: "🧬" },
+  { bg: "linear-gradient(135deg,#6b46c1,#4c2d92)", icon: "📘" },
+];
+function thumbFor(id) { return THUMB_STYLES[id % THUMB_STYLES.length]; }
+
+let CURRENT_USER = null;
+let APPLIED_COUPON = null; // { code, discount_percent } | null
+
+// Cart/checkout is where we finally need name + email + phone all
+// present (Razorpay wants them to prefill/confirm the payment, and a
+// Google sign-in account has no phone number at all yet). Ask only for
+// whatever's actually missing — most students (signed up with phone)
+// will just be asked for email; a Google sign-in will be asked for phone.
+function renderContactForm(user) {
+  const body = document.getElementById("cart-body");
+  body.innerHTML = `
+    <div class="card">
+      <strong>Just need a couple of details</strong>
+      <p class="small muted" style="margin-top:4px;">We use these to confirm your order and course access — nothing else.</p>
+      <form id="contact-form">
+        <label>Full name</label>
+        <input name="name" value="${escapeHtml(user.name || "")}" required>
+        <label>Email</label>
+        <input name="email" type="email" value="${escapeHtml(user.email || "")}" required>
+        <label>Mobile number</label>
+        <input name="phone" value="${escapeHtml(user.phone || "")}" required>
+        <div id="contact-error" class="notice error" style="display:none;"></div>
+        <button style="margin-top:14px;width:100%;justify-content:center;">Save &amp; continue</button>
+      </form>
+    </div>`;
+
+  document.getElementById("contact-form").onsubmit = async (e) => {
+    e.preventDefault();
+    const fd = Object.fromEntries(new FormData(e.target));
+    const errEl = document.getElementById("contact-error");
+    errEl.style.display = "none";
+    try {
+      const { user: updated } = await api("/auth/me", { method: "PATCH", body: fd });
+      CURRENT_USER = updated;
+      renderCart();
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.style.display = "block";
+    }
+  };
+}
+
+// Returns true once name/email/phone are all on file — false means it
+// just swapped the cart body for the "complete your details" form above,
+// and the caller should stop (renderCart() runs again once that's saved).
+function hasCompleteContactDetails(user) {
+  return Boolean(user && user.name && user.email && user.phone);
+}
+
+async function renderCart() {
+  if (!hasCompleteContactDetails(CURRENT_USER)) {
+    renderContactForm(CURRENT_USER || {});
+    return;
+  }
+
+  const body = document.getElementById("cart-body");
+  const { items, total } = await api("/cart");
+
+  if (!items.length) {
+    body.innerHTML = `
+      <div class="empty-cart">
+        <div class="icon">🛒</div>
+        <p>Your cart is empty.</p>
+        <a class="btn" href="/home.html#courses">Browse courses</a>
+      </div>`;
+    return;
+  }
+
+  const discount = APPLIED_COUPON ? Math.round((total * APPLIED_COUPON.discount_percent) / 100) : 0;
+  const payable = Math.max(0, total - discount);
+
+  body.innerHTML = `
+    <div class="card" style="padding:0 20px;">
+      ${items.map((i) => {
+        const t = thumbFor(i.course_id);
+        return `
+        <div class="cart-item">
+          <div class="thumb" style="background:${t.bg}">${t.icon}</div>
+          <div class="info">
+            <strong>${escapeHtml(i.title)}</strong>
+            <div class="desc">${escapeHtml(i.description || "")}</div>
+            <button class="remove-btn" data-remove="${i.course_id}">Remove</button>
+          </div>
+          <div class="price">&#8377;${i.price}</div>
+        </div>`;
+      }).join("")}
+    </div>
+    <div class="card">
+      ${APPLIED_COUPON ? `
+        <div class="coupon-applied">
+          <span>&#127991; ${escapeHtml(APPLIED_COUPON.code)} applied — ${APPLIED_COUPON.discount_percent}% off</span>
+          <button id="remove-coupon-btn" type="button">Remove</button>
+        </div>` : `
+        <form id="coupon-form" class="coupon-row">
+          <input name="code" placeholder="Coupon code">
+          <button type="submit" class="secondary">Apply</button>
+        </form>`}
+      <div id="coupon-error" class="notice error" style="display:none;"></div>
+
+      <div class="summary-row"><span>Subtotal (${items.length} course${items.length === 1 ? "" : "s"})</span><span>&#8377;${total}</span></div>
+      ${discount > 0 ? `<div class="summary-row discount"><span>Coupon discount</span><span>&minus;&#8377;${discount}</span></div>` : ""}
+      <div class="summary-row total"><span>Total</span><span>&#8377;${payable}</span></div>
+      <button class="btn pay-btn" id="pay-btn">Proceed to Pay &#8377;${payable}</button>
+      <div id="pay-error" class="notice error" style="display:none;"></div>
+    </div>`;
+
+  body.querySelectorAll("[data-remove]").forEach((btn) => btn.onclick = async () => {
+    await api(`/cart/${btn.dataset.remove}`, { method: "DELETE" });
+    renderCart();
+  });
+
+  const couponForm = document.getElementById("coupon-form");
+  if (couponForm) {
+    couponForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const code = new FormData(couponForm).get("code");
+      const errEl = document.getElementById("coupon-error");
+      errEl.style.display = "none";
+      try {
+        const result = await api("/coupons/validate", { method: "POST", body: { code } });
+        APPLIED_COUPON = { code: result.code, discount_percent: result.discount_percent };
+        renderCart();
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = "block";
+      }
+    };
+  }
+  const removeCouponBtn = document.getElementById("remove-coupon-btn");
+  if (removeCouponBtn) removeCouponBtn.onclick = () => { APPLIED_COUPON = null; renderCart(); };
+
+  document.getElementById("pay-btn").onclick = startCheckout;
+}
+
+function loadRazorpayScript() {
+  return new Promise((resolve, reject) => {
+    if (window.Razorpay) return resolve();
+    const s = document.createElement("script");
+    s.src = "https://checkout.razorpay.com/v1/checkout.js";
+    s.onload = resolve;
+    s.onerror = () => reject(new Error("Could not reach Razorpay right now."));
+    document.head.appendChild(s);
+  });
+}
+
+function showSuccess(message) {
+  document.getElementById("cart-body").innerHTML = `
+    <div class="card success-box">
+      <div class="icon">&#9989;</div>
+      <strong>Purchase complete</strong>
+      <p class="small muted" style="margin-top:6px;">${escapeHtml(message)}</p>
+      <a class="btn" href="/student.html" style="margin-top:14px;">Go to my courses</a>
+    </div>`;
+}
+
+async function startCheckout() {
+  const btn = document.getElementById("pay-btn");
+  const errEl = document.getElementById("pay-error");
+  errEl.style.display = "none";
+  btn.disabled = true;
+  btn.textContent = "Starting checkout…";
+  try {
+    const result = await api("/checkout", {
+      method: "POST",
+      body: APPLIED_COUPON ? { coupon_code: APPLIED_COUPON.code } : {},
+    });
+
+    if (result.mode === "demo") {
+      APPLIED_COUPON = null;
+      showSuccess(result.message);
+      return;
+    }
+
+    // mode === "razorpay"
+    await loadRazorpayScript();
+    const rzp = new Razorpay({
+      key: result.razorpay_key_id,
+      amount: result.amount,
+      currency: result.currency,
+      order_id: result.razorpay_order_id,
+      name: "MoleQule Prep",
+      description: "Course purchase",
+      prefill: { name: CURRENT_USER?.name || "", email: CURRENT_USER?.email || "", contact: CURRENT_USER?.phone || "" },
+      theme: { color: "#0E7A5F" },
+      handler: async (response) => {
+        try {
+          await api("/checkout/verify", {
+            method: "POST",
+            body: {
+              order_id: result.order_id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            },
+          });
+          APPLIED_COUPON = null;
+          showSuccess("Payment received — you're enrolled in every course from this order.");
+        } catch (err) {
+          errEl.textContent = "Payment succeeded but couldn't be confirmed: " + err.message + ". Contact support with your payment ID: " + response.razorpay_payment_id;
+          errEl.style.display = "block";
+        }
+      },
+      modal: {
+        ondismiss: () => { btn.disabled = false; btn.textContent = "Proceed to Pay"; },
+      },
+    });
+    rzp.on("payment.failed", (resp) => {
+      errEl.textContent = "Payment failed: " + (resp.error?.description || "please try again.");
+      errEl.style.display = "block";
+      btn.disabled = false;
+      btn.textContent = "Proceed to Pay";
+    });
+    rzp.open();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.style.display = "block";
+    btn.disabled = false;
+    btn.textContent = "Proceed to Pay";
+  }
+}
+
+(async () => {
+  try {
+    CURRENT_USER = await currentUser();
+  } catch { CURRENT_USER = null; }
+  if (!CURRENT_USER || CURRENT_USER.role !== "student") {
+    location.href = "/index.html?next=/cart.html";
+    return;
+  }
+  renderCart();
+})();
+</script>
+</body>
+</html>

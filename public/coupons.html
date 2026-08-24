@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coupons — MoleQule Prep</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  table{width:100%;border-collapse:collapse;font-size:.9rem;}
+  th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);}
+  th{color:var(--ink-soft);font-size:.78rem;text-transform:uppercase;letter-spacing:.03em;}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
+  code.code{background:var(--surface-2);padding:2px 8px;border-radius:4px;font-weight:700;letter-spacing:.02em;}
+  .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media (max-width:600px){.form-row{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="container row between">
+    <a class="brand" href="/teacher.html"><span class="dot"></span> MoleQule Prep</a>
+    <a class="btn secondary" href="/teacher.html">&larr; Back to dashboard</a>
+  </div>
+</header>
+
+<main class="container">
+  <h1 style="margin-bottom:4px;">Coupons</h1>
+  <p class="small muted" style="margin-bottom:20px;">Percentage-off codes students can apply at checkout. Referral coupons (auto-created when a student's invite link is used) show up here too, read-only.</p>
+
+  <div class="card">
+    <h3>New coupon</h3>
+    <form id="coupon-form">
+      <div class="form-row">
+        <div>
+          <label>Code</label>
+          <input name="code" required placeholder="e.g. DIWALI20" style="text-transform:uppercase;">
+        </div>
+        <div>
+          <label>Discount %</label>
+          <input name="discount_percent" type="number" min="1" max="100" required placeholder="e.g. 20">
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>Max uses <span class="muted">(optional — blank = unlimited)</span></label>
+          <input name="max_uses" type="number" min="1" placeholder="e.g. 50">
+        </div>
+        <div>
+          <label>Expires <span class="muted">(optional)</span></label>
+          <input name="expires_at" type="date">
+        </div>
+      </div>
+      <div id="coupon-error" class="notice error" style="display:none;"></div>
+      <button style="margin-top:12px;">Create coupon</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>All coupons</h3>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr><th>Code</th><th>Source</th><th class="num">Discount</th><th class="num">Used</th><th>Expires</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody id="coupon-table"><tr><td colspan="7" class="muted small">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script src="/js/api.js"></script>
+<script>
+async function init() {
+  const user = await currentUser();
+  if (!user || user.role !== "teacher") { location.href = "/"; return; }
+  await loadCoupons();
+}
+
+async function loadCoupons() {
+  const { coupons } = await api("/coupons");
+  const tbody = document.getElementById("coupon-table");
+  if (!coupons.length) {
+    tbody.innerHTML = `<tr><td colspan="7" class="muted small">No coupons yet.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = coupons.map((c) => {
+    const expired = c.expires_at && new Date(c.expires_at) < new Date();
+    const usedUp = c.max_uses !== null && c.used_count >= c.max_uses;
+    const status = !c.active ? "Off" : expired ? "Expired" : usedUp ? "Used up" : "Active";
+    return `
+    <tr>
+      <td><code class="code">${escapeHtml(c.code)}</code></td>
+      <td>${c.source === "referral" ? `Referral${c.owner_student_id ? " (personal)" : ""}` : "Manual"}</td>
+      <td class="num">${c.discount_percent}%</td>
+      <td class="num">${c.used_count}${c.max_uses !== null ? " / " + c.max_uses : ""}</td>
+      <td>${c.expires_at ? new Date(c.expires_at).toLocaleDateString("en-IN") : "Never"}</td>
+      <td><span class="badge ${status === "Active" ? "open" : "ended"}">${status}</span></td>
+      <td>${c.source === "manual" ? `<button class="secondary small" data-toggle="${c.id}" data-active="${c.active}">${c.active ? "Turn off" : "Turn on"}</button>` : ""}</td>
+    </tr>`;
+  }).join("");
+
+  tbody.querySelectorAll("[data-toggle]").forEach((btn) => btn.onclick = async () => {
+    await api(`/coupons/${btn.dataset.toggle}`, { method: "PATCH", body: { active: btn.dataset.active !== "1" } });
+    loadCoupons();
+  });
+}
+
+document.getElementById("coupon-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const fd = Object.fromEntries(new FormData(e.target));
+  const errEl = document.getElementById("coupon-error");
+  errEl.style.display = "none";
+  try {
+    await api("/coupons", { method: "POST", body: fd });
+    e.target.reset();
+    loadCoupons();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.style.display = "block";
+  }
+};
+
+init();
+</script>
+</body>
+</html>

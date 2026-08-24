@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MoleQule Prep — Home</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .hero{padding:64px 0 48px;text-align:left;}
+  .hero h1{font-size:2.1rem;margin-bottom:10px;max-width:20ch;}
+  .hero p{color:var(--ink-soft);max-width:56ch;font-size:1.02rem;}
+  .hero .actions{display:flex;gap:12px;margin-top:22px;flex-wrap:wrap;}
+  nav.home-nav{display:flex;gap:22px;align-items:center;}
+  nav.home-nav a{color:var(--ink-soft);text-decoration:none;font-size:.92rem;}
+  nav.home-nav a:hover{color:var(--ink);}
+  nav.home-nav .btn{white-space:nowrap;padding:9px 14px;font-size:.84rem;}
+  @media (max-width:520px){
+    nav.home-nav{gap:12px;}
+    nav.home-nav a.section-link{display:none;}
+  }
+  section.block{padding:36px 0;border-top:1px solid var(--line);}
+  section.block h2{margin-bottom:6px;}
+  section.block .sub{color:var(--ink-soft);font-size:.92rem;margin-bottom:20px;}
+
+  /* Product-style course cards (Blinkit-esque): a colored thumbnail up
+     top, price + an ADD button that behaves like an e-commerce cart, not
+     a plain "learn more" link. */
+  .course-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;}
+  .course-card .thumb{
+    aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;
+    font-size:2.2rem;color:#fff;position:relative;
+  }
+  .course-card .thumb .badge-corner{
+    position:absolute;top:8px;left:8px;background:rgba(16,34,29,.55);color:#fff;
+    font-size:.68rem;font-weight:700;padding:3px 8px;border-radius:4px;
+  }
+  .course-card .body{padding:14px;display:flex;flex-direction:column;gap:6px;flex:1;}
+  .course-card .title{font-weight:600;font-size:.95rem;line-height:1.3;}
+  .course-card .desc{font-size:.78rem;color:var(--ink-soft);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.1em;}
+  .course-card .price-row{display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:8px;}
+  .course-card .price{font-weight:700;color:var(--accent-strong);font-size:1.02rem;}
+  .course-card .enrolled-count{font-size:.7rem;color:var(--ink-faint);}
+  .add-btn{
+    border:1.5px solid var(--accent);color:var(--accent-strong);background:var(--surface);
+    border-radius:8px;padding:7px 16px;font-size:.82rem;font-weight:700;cursor:pointer;
+    min-width:76px;text-align:center;
+    box-shadow:0 3px 0 var(--line), 0 4px 10px rgba(16,34,29,.08);
+    transition:transform .08s ease, box-shadow .08s ease;
+  }
+  .add-btn:hover{background:var(--accent-tint);}
+  .add-btn:active{transform:translateY(3px);box-shadow:0 0 0 var(--line);}
+  .add-btn.added{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 3px 0 var(--accent-strong), 0 4px 10px rgba(10,92,71,.22);}
+  .add-btn.enrolled{background:var(--surface-2);color:var(--ink-soft);border-color:var(--line);cursor:default;box-shadow:none;}
+  .add-btn:disabled{cursor:default;transform:none;}
+
+  /* Cart nav icon + floating "View cart" bar */
+  .cart-link{position:relative;display:inline-flex;align-items:center;text-decoration:none;color:var(--ink);font-size:1.15rem;padding:4px 2px;}
+  .cart-badge{
+    position:absolute;top:-4px;right:-8px;background:var(--accent);color:#fff;font-size:.62rem;
+    font-weight:700;border-radius:999px;min-width:16px;height:16px;display:flex;align-items:center;justify-content:center;padding:0 3px;
+  }
+  .cart-float-bar{
+    position:fixed;left:50%;transform:translateX(-50%);bottom:20px;z-index:20;
+    background:var(--accent-strong);color:#fff;border-radius:999px;padding:12px 20px;
+    display:flex;align-items:center;gap:14px;box-shadow:0 8px 24px rgba(10,92,71,.35);
+    text-decoration:none;font-weight:700;font-size:.9rem;
+  }
+  .cart-float-bar:hover{background:var(--accent);}
+  .cart-float-bar .count{font-weight:400;opacity:.85;font-size:.8rem;}
+
+  /* Shorts folder */
+  .shorts-folder{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:22px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;gap:16px;
+  }
+  .shorts-folder:hover{border-color:var(--accent);}
+  .shorts-folder .icon{font-size:1.8rem;line-height:1;}
+  .shorts-folder .meta strong{display:block;font-size:1.05rem;}
+  .shorts-folder .meta span{font-size:.82rem;color:var(--ink-soft);}
+  #shorts-grid{
+    display:none;margin-top:18px;
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;
+  }
+  #shorts-grid.open{display:grid;}
+  .short-card{display:block;text-decoration:none;color:var(--ink);}
+  .short-thumb{
+    aspect-ratio:9/16;background:var(--surface-2) center/cover no-repeat;border-radius:8px;
+    border:1px solid var(--line);position:relative;overflow:hidden;
+  }
+  .short-thumb::after{
+    content:"▶";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:1.4rem;background:rgba(16,34,29,0);transition:background .15s;
+  }
+  .short-card:hover .short-thumb::after{background:rgba(16,34,29,.35);}
+  .short-title{font-size:.78rem;margin-top:6px;color:var(--ink-soft);line-height:1.3;}
+
+  footer.site-footer{border-top:1px solid var(--line);padding:32px 0;margin-top:20px;}
+  .social-row{display:flex;gap:12px;margin-top:12px;}
+  .social-btn{
+    display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:8px;
+    border:1px solid var(--line);text-decoration:none;color:var(--ink);font-size:.88rem;font-weight:600;
+    background:var(--surface);
+  }
+  .social-btn:hover{border-color:var(--accent);}
+  .social-btn svg{width:18px;height:18px;flex:none;}
+  .footer-links{display:flex;gap:16px;margin-top:14px;flex-wrap:wrap;}
+  .footer-links a{color:var(--ink-soft);text-decoration:none;font-size:.82rem;}
+  .footer-links a:hover{color:var(--ink);text-decoration:underline;}
+
+  /* Top promo banner: a coupon code, when one's live. Bottom banner:
+     "invite friends" — a generic pitch for anyone, a live referral
+     link swapped in once we know who's logged in. */
+  .promo-banner{
+    background:linear-gradient(90deg, var(--accent-strong), var(--accent));color:#fff;
+    text-align:center;font-size:.86rem;font-weight:600;padding:10px 16px;
+  }
+  .promo-banner strong{font-weight:800;letter-spacing:.02em;}
+  .promo-banner a{color:#fff;text-decoration:underline;}
+  .invite-banner{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:22px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+    margin:36px 0 8px;
+  }
+  .invite-banner .icon{font-size:1.8rem;line-height:1;}
+  .invite-banner strong{display:block;font-size:1.02rem;}
+  .invite-banner p{color:var(--ink-soft);font-size:.85rem;margin-top:4px;max-width:46ch;}
+
+  /* Reviews */
+  .review-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;}
+  .review-card .stars{color:var(--gold);font-size:.9rem;letter-spacing:1px;}
+  .review-card .review-text{font-size:.88rem;margin:8px 0;line-height:1.5;}
+  .review-card .review-meta{font-size:.76rem;color:var(--ink-faint);}
+</style>
+</head>
+<body>
+<div class="promo-banner" id="promo-banner" style="display:none;"></div>
+
+<header class="topbar">
+  <div class="container row between">
+    <a class="brand" href="/home.html"><span class="dot"></span> MoleQule Prep</a>
+    <nav class="home-nav">
+      <a href="#courses" class="section-link">Courses</a>
+      <a href="#shorts" class="section-link">Shorts</a>
+      <a href="#reviews" class="section-link">Reviews</a>
+      <a class="cart-link" href="/cart.html" id="cart-nav-link" style="display:none;">🛒<span class="cart-badge" id="cart-badge" style="display:none;">0</span></a>
+      <a class="btn" href="/index.html" id="login-link">Log in / Register</a>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <section class="hero">
+    <h1>NEET, JEE &amp; Govt Exam Preparation</h1>
+    <p>Live classes, a growing video library, free tests, and quick Shorts — everything MoleQule Prep's chemistry courses cover, taught by YK Sir.</p>
+    <div class="actions">
+      <a class="btn" href="#courses">Browse courses</a>
+      <a class="btn secondary" href="/index.html">Log in / Register</a>
+    </div>
+  </section>
+
+  <section class="block" id="courses">
+    <h2>Courses</h2>
+    <div class="sub">Register free, then unlock live classes and the video library for the ones you join.</div>
+    <div id="course-grid" class="grid cols-3">Loading…</div>
+  </section>
+
+  <section class="block" id="shorts">
+    <h2>Shorts</h2>
+    <div class="sub">Quick chemistry clips from the YouTube channel — new uploads show up here automatically.</div>
+    <div class="shorts-folder" id="shorts-folder">
+      <div class="row" style="gap:14px;">
+        <span class="icon">📁</span>
+        <div class="meta">
+          <strong>Shorts</strong>
+          <span id="shorts-count">Loading…</span>
+        </div>
+      </div>
+      <span class="small muted" id="shorts-toggle-label">Open &rarr;</span>
+    </div>
+    <div id="shorts-grid"></div>
+  </section>
+
+  <section class="block" id="reviews">
+    <h2>What students say</h2>
+    <div class="sub" id="reviews-summary">Loading…</div>
+    <div id="reviews-grid" class="grid cols-3"></div>
+  </section>
+
+  <div class="invite-banner" id="invite-banner">
+    <div class="row" style="gap:14px;">
+      <span class="icon">🎁</span>
+      <div>
+        <strong id="invite-title">Invite friends, both of you save</strong>
+        <p id="invite-sub">Share your referral link — when a friend signs up with it, you both get a discount coupon on your next course.</p>
+      </div>
+    </div>
+    <button class="btn secondary" id="invite-action">Log in to get my link</button>
+  </div>
+</main>
+
+<a href="/cart.html" class="cart-float-bar" id="cart-float-bar" style="display:none;">
+  🛒 View cart <span class="count" id="cart-float-count"></span> &rarr;
+</a>
+
+<footer class="site-footer">
+  <div class="container">
+    <strong>Stay connected</strong>
+    <div class="social-row" id="social-row"><span class="small muted">Loading…</span></div>
+    <div class="footer-links">
+      <a href="/faq.html">FAQ</a>
+      <a href="/privacy.html">Privacy Policy</a>
+    </div>
+    <p class="small muted" style="margin-top:20px;">&copy; 2026 MoleQule Prep</p>
+  </div>
+</footer>
+
+<script src="/js/api.js"></script>
+<script src="/js/track.js"></script>
+<script>
+trackEvent("visit");
+
+let CURRENT_USER = null;
+let CART_COURSE_IDS = new Set();
+const VALIDITY_LABELS = { 7: "7 days", 15: "15 days", 30: "1 month", 90: "3 months", 180: "6 months", 365: "12 months", 730: "24 months" };
+const THUMB_STYLES = [
+  { bg: "linear-gradient(135deg,#0E7A5F,#0A5C47)", icon: "⚗️" },
+  { bg: "linear-gradient(135deg,#B9791C,#8a5a12)", icon: "🧪" },
+  { bg: "linear-gradient(135deg,#2b6cb0,#1a4971)", icon: "🧬" },
+  { bg: "linear-gradient(135deg,#6b46c1,#4c2d92)", icon: "📘" },
+];
+function thumbFor(id) { return THUMB_STYLES[id % THUMB_STYLES.length]; }
+
+async function refreshCartState() {
+  const badge = document.getElementById("cart-badge");
+  const floatBar = document.getElementById("cart-float-bar");
+  const floatCount = document.getElementById("cart-float-count");
+  if (!CURRENT_USER || CURRENT_USER.role !== "student") {
+    badge.style.display = "none";
+    floatBar.style.display = "none";
+    CART_COURSE_IDS = new Set();
+    return;
+  }
+  try {
+    const { items, total, count } = await api("/cart");
+    CART_COURSE_IDS = new Set(items.map((i) => i.course_id));
+    if (count > 0) {
+      badge.textContent = count;
+      badge.style.display = "flex";
+      floatCount.textContent = `${count} course${count === 1 ? "" : "s"} · ₹${total}`;
+      floatBar.style.display = "flex";
+    } else {
+      badge.style.display = "none";
+      floatBar.style.display = "none";
+    }
+  } catch { /* not logged in as a student, or a network hiccup — cart just stays hidden */ }
+}
+
+function courseActionHtml(c) {
+  if (c.is_enrolled) {
+    return `<button class="add-btn enrolled" disabled>&#10003; Registered</button>`;
+  }
+  if (c.price <= 0) {
+    return `<button class="add-btn" data-free="${c.id}">Register free</button>`;
+  }
+  if (CART_COURSE_IDS.has(c.id)) {
+    return `<button class="add-btn added" data-remove="${c.id}">&#10003; Added</button>`;
+  }
+  return `<button class="add-btn" data-add="${c.id}">ADD</button>`;
+}
+
+async function loadCourses() {
+  const grid = document.getElementById("course-grid");
+  try {
+    const { courses } = await api("/courses");
+    if (!courses.length) { grid.innerHTML = "<p class='muted small'>No courses published yet.</p>"; return; }
+    grid.innerHTML = courses.map((c) => {
+      const t = thumbFor(c.id);
+      return `
+      <div class="course-card">
+        <div class="thumb" style="background:${t.bg}">
+          <span class="badge-corner">${c.price > 0 ? "₹" + c.price : "FREE"}</span>
+          ${t.icon}
+        </div>
+        <div class="body">
+          <div class="title">${escapeHtml(c.title)}</div>
+          <div class="desc">${escapeHtml(c.description || "")}</div>
+          <div class="price-row">
+            <div>
+              <div class="price">${c.price > 0 ? "₹" + c.price : "Free"}</div>
+              <div class="enrolled-count">${c.student_count} enrolled &middot; ${VALIDITY_LABELS[c.validity_days] || "Lifetime"} access</div>
+            </div>
+            ${courseActionHtml(c)}
+          </div>
+        </div>
+      </div>`;
+    }).join("");
+
+    grid.querySelectorAll("[data-add]").forEach((btn) => btn.onclick = () => handleAdd(Number(btn.dataset.add)));
+    grid.querySelectorAll("[data-remove]").forEach((btn) => btn.onclick = () => handleRemove(Number(btn.dataset.remove)));
+    grid.querySelectorAll("[data-free]").forEach((btn) => btn.onclick = () => handleFree(Number(btn.dataset.free)));
+  } catch {
+    grid.innerHTML = "<p class='muted small'>Couldn't load courses right now.</p>";
+  }
+}
+
+function requireLogin() {
+  if (!CURRENT_USER) { location.href = "/index.html?next=/home.html"; return false; }
+  if (CURRENT_USER.role !== "student") { alert("Log in as a student to buy or register for a course."); return false; }
+  return true;
+}
+
+async function handleAdd(courseId) {
+  if (!requireLogin()) return;
+  try {
+    await api("/cart", { method: "POST", body: { course_id: courseId } });
+    await refreshCartState();
+    await loadCourses();
+  } catch (err) { alert(err.message); }
+}
+
+async function handleRemove(courseId) {
+  if (!requireLogin()) return;
+  try {
+    await api(`/cart/${courseId}`, { method: "DELETE" });
+    await refreshCartState();
+    await loadCourses();
+  } catch (err) { alert(err.message); }
+}
+
+async function handleFree(courseId) {
+  if (!requireLogin()) return;
+  try {
+    await api(`/courses/${courseId}/enroll`, { method: "POST" });
+    await loadCourses();
+  } catch (err) { alert(err.message); }
+}
+
+async function loadShorts() {
+  const section = document.getElementById("shorts");
+  const navLink = document.querySelector('a.section-link[href="#shorts"]');
+  const countEl = document.getElementById("shorts-count");
+  const grid = document.getElementById("shorts-grid");
+  const folder = document.getElementById("shorts-folder");
+  const toggleLabel = document.getElementById("shorts-toggle-label");
+
+  let shorts = [];
+  let configured = false;
+  try {
+    const data = await api("/shorts");
+    shorts = data.shorts || [];
+    configured = data.configured;
+  } catch { /* leave empty */ }
+
+  const isAdmin = CURRENT_USER && CURRENT_USER.role === "teacher";
+
+  if (!configured) {
+    if (!isAdmin) {
+      // Nothing to show a student/visitor yet -- hide the whole section
+      // instead of leaking a setup instruction meant for the teacher.
+      section.style.display = "none";
+      if (navLink) navLink.style.display = "none";
+      return;
+    }
+    countEl.textContent = "Not connected yet";
+    grid.innerHTML = "<p class='muted small'>Admin only: add YOUTUBE_API_KEY and YOUTUBE_CHANNEL_ID in .env to show your channel's Shorts here — see README.</p>";
+  } else if (!shorts.length) {
+    countEl.textContent = "0 videos";
+    grid.innerHTML = "<p class='muted small'>No Shorts found on the channel yet.</p>";
+  } else {
+    countEl.textContent = `${shorts.length} video${shorts.length === 1 ? "" : "s"}`;
+    grid.innerHTML = shorts.map((s) => `
+      <a class="short-card" target="_blank" href="https://www.youtube.com/shorts/${s.id}">
+        <div class="short-thumb" style="background-image:url('${s.thumbnail}')"></div>
+        <div class="short-title">${escapeHtml(s.title)}</div>
+      </a>`).join("");
+  }
+
+  folder.onclick = () => {
+    const open = grid.classList.toggle("open");
+    toggleLabel.textContent = open ? "Close ×" : "Open →";
+  };
+}
+
+async function loadPromoBanner() {
+  const banner = document.getElementById("promo-banner");
+  try {
+    const { coupon } = await api("/coupons/featured");
+    if (!coupon) return;
+    banner.innerHTML = `Use code <strong>${escapeHtml(coupon.code)}</strong> for ${coupon.discount_percent}% off any course — apply it in your cart.`;
+    banner.style.display = "block";
+  } catch { /* no active coupon or a network hiccup — banner just stays hidden */ }
+}
+
+function setupInviteBanner() {
+  const title = document.getElementById("invite-title");
+  const sub = document.getElementById("invite-sub");
+  const action = document.getElementById("invite-action");
+
+  if (CURRENT_USER && CURRENT_USER.role === "student" && CURRENT_USER.referral_code) {
+    const link = `${location.origin}/index.html?ref=${CURRENT_USER.referral_code}`;
+    title.textContent = "Invite friends, both of you save";
+    sub.textContent = `Your code: ${CURRENT_USER.referral_code} — share your link below.`;
+    action.textContent = "Copy my referral link";
+    action.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(link);
+        action.textContent = "Copied!";
+        setTimeout(() => { action.textContent = "Copy my referral link"; }, 1800);
+      } catch {
+        prompt("Copy your referral link:", link);
+      }
+    };
+  } else if (CURRENT_USER && CURRENT_USER.role === "teacher") {
+    document.getElementById("invite-banner").style.display = "none";
+  } else {
+    title.textContent = "Invite friends, both of you save";
+    sub.textContent = "Log in or register, then share your personal referral link — when a friend signs up with it, you both get a discount coupon.";
+    action.textContent = "Log in to get my link";
+    action.onclick = () => { location.href = "/index.html?next=/home.html"; };
+  }
+}
+
+function starString(rating) {
+  const n = Math.round(rating);
+  return "★".repeat(n) + "☆".repeat(5 - n);
+}
+
+async function loadReviews() {
+  const summaryEl = document.getElementById("reviews-summary");
+  const grid = document.getElementById("reviews-grid");
+  try {
+    const { reviews, summary } = await api("/reviews");
+    if (!reviews.length) {
+      summaryEl.textContent = "Be the first to leave a review — log in as a student to share yours.";
+      grid.innerHTML = "";
+      return;
+    }
+    summaryEl.innerHTML = `<span class="stars" style="color:var(--gold);">${starString(summary.avg_rating)}</span> ${summary.avg_rating} out of 5 &middot; ${summary.count} review${summary.count === 1 ? "" : "s"}`;
+    grid.innerHTML = reviews.map((r) => `
+      <div class="review-card">
+        <div class="stars">${starString(r.rating)}</div>
+        <p class="review-text">${escapeHtml(r.text)}</p>
+        <div class="review-meta">${escapeHtml(r.student_name)} &middot; ${timeAgo(r.created_at)}</div>
+      </div>`).join("");
+  } catch {
+    summaryEl.textContent = "";
+    grid.innerHTML = "";
+  }
+}
+
+async function loadSocial() {
+  const row = document.getElementById("social-row");
+  try {
+    const { instagram, facebook, whatsapp, telegram_bot } = await api("/social");
+    const links = [];
+    if (whatsapp) links.push(`<a class="social-btn" target="_blank" href="${whatsapp}">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 004.74 1.21h.01c5.46 0 9.9-4.45 9.9-9.91C21.96 6.45 17.5 2 12.04 2zm5.8 14.02c-.24.68-1.4 1.3-1.93 1.38-.5.08-1.12.11-1.8-.11-.42-.13-.96-.31-1.65-.6-2.9-1.25-4.8-4.17-4.94-4.36-.14-.19-1.18-1.57-1.18-3 0-1.42.75-2.12 1.02-2.41.26-.29.58-.36.77-.36h.55c.18 0 .42-.07.65.5.24.58.82 2 .89 2.14.07.14.12.31.02.5-.1.19-.15.31-.29.48-.15.17-.31.38-.44.51-.15.14-.3.3-.13.59.17.29.76 1.25 1.63 2.02 1.12.99 2.06 1.31 2.35 1.46.29.14.46.12.63-.07.17-.19.72-.84.92-1.13.19-.29.39-.24.64-.14.26.1 1.66.78 1.94.92.29.14.48.22.55.34.07.13.07.71-.17 1.4z"/></svg>
+      WhatsApp</a>`);
+    if (telegram_bot) links.push(`<a class="social-btn" target="_blank" href="https://t.me/${telegram_bot}">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.9 4.6c.2-1-.6-1.7-1.5-1.4L2.4 10.1c-1 .4-1 1.8.1 2.1l4.4 1.4 1.7 5.5c.2.7 1.1.9 1.6.4l2.5-2.4 4.6 3.4c.7.5 1.7.2 2-.7l3.6-15.2zM8.5 13.7l9-6.5c.3-.2.6.1.3.4l-7.3 7.4c-.3.3-.5.7-.5 1.2v2.3l-1.5-4.8z"/></svg>
+      Telegram</a>`);
+    if (instagram) links.push(`<a class="social-btn" target="_blank" href="${instagram}">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c2.7 0 3.06.01 4.12.06 1.06.05 1.79.22 2.43.47.66.26 1.21.6 1.76 1.15.55.55.89 1.1 1.15 1.76.25.64.42 1.37.47 2.43.05 1.06.06 1.42.06 4.12s-.01 3.06-.06 4.12c-.05 1.06-.22 1.79-.47 2.43a4.9 4.9 0 01-1.15 1.76 4.9 4.9 0 01-1.76 1.15c-.64.25-1.37.42-2.43.47-1.06.05-1.42.06-4.12.06s-3.06-.01-4.12-.06c-1.06-.05-1.79-.22-2.43-.47a4.9 4.9 0 01-1.76-1.15 4.9 4.9 0 01-1.15-1.76c-.25-.64-.42-1.37-.47-2.43C2.01 15.06 2 14.7 2 12s.01-3.06.06-4.12c.05-1.06.22-1.79.47-2.43.26-.66.6-1.21 1.15-1.76a4.9 4.9 0 011.76-1.15c.64-.25 1.37-.42 2.43-.47C8.94 2.01 9.3 2 12 2zm0 5a5 5 0 100 10 5 5 0 000-10zm0 8.2a3.2 3.2 0 110-6.4 3.2 3.2 0 010 6.4zm5.4-8.4a1.2 1.2 0 100-2.4 1.2 1.2 0 000 2.4z"/></svg>
+      Instagram</a>`);
+    if (facebook) links.push(`<a class="social-btn" target="_blank" href="${facebook}">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 21v-8h2.7l.4-3.1h-3.1V8c0-.9.2-1.5 1.6-1.5h1.6V3.6C15.9 3.5 15 3.4 13.9 3.4c-2.4 0-4 1.5-4 4.2v2.3H7.2V13H10v8z"/></svg>
+      Facebook</a>`);
+    const isAdmin = CURRENT_USER && CURRENT_USER.role === "teacher";
+    if (links.length) {
+      row.innerHTML = links.join("");
+    } else if (isAdmin) {
+      row.innerHTML = "<span class='small muted'>Admin only: add WHATSAPP_DISPLAY_NUMBER / TELEGRAM_BOT_USERNAME / INSTAGRAM_URL / FACEBOOK_URL in .env to show these buttons.</span>";
+    } else {
+      // Nothing to show a student/visitor yet -- hide the whole footer
+      // block instead of leaking a setup instruction meant for the teacher.
+      document.querySelector("footer.site-footer .container > strong").style.display = "none";
+      row.innerHTML = "";
+    }
+  } catch {
+    row.innerHTML = "";
+  }
+}
+
+(async () => {
+  try { CURRENT_USER = await currentUser(); } catch { CURRENT_USER = null; }
+
+  const loginLink = document.getElementById("login-link");
+  const cartNavLink = document.getElementById("cart-nav-link");
+  if (CURRENT_USER) {
+    loginLink.textContent = CURRENT_USER.role === "teacher" ? "Dashboard" : "My Courses";
+    loginLink.href = CURRENT_USER.role === "teacher" ? "/teacher.html" : "/student.html";
+    if (CURRENT_USER.role === "student") cartNavLink.style.display = "inline-flex";
+  }
+
+  await loadCourses();
+  await refreshCartState();
+  await loadCourses(); // re-render once cart state is known, so ADD vs Added is correct on first paint
+  loadShorts();
+  loadReviews();
+  loadSocial();
+  loadPromoBanner();
+  setupInviteBanner();
+})();
+</script>
+</body>
+</html>

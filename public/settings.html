@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings — MoleQule Prep</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .step-num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:999px;background:var(--accent-tint);color:var(--accent-strong);font-size:.76rem;font-weight:700;flex:none;}
+  .redirect-uri{background:var(--surface-2);border-radius:6px;padding:8px 12px;font-size:.82rem;font-family:monospace;word-break:break-all;user-select:all;}
+  .status-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="container row between">
+    <a class="brand" href="/teacher.html"><span class="dot"></span> MoleQule Prep</a>
+    <a class="btn secondary" href="/teacher.html">&larr; Back to dashboard</a>
+  </div>
+</header>
+
+<main class="container" style="max-width:640px;">
+  <h1 style="margin-bottom:4px;">Settings</h1>
+  <p class="small muted" style="margin-bottom:20px;">Connect things right from here — no editing .env files or restarting the server.</p>
+
+  <div id="banner"></div>
+
+  <div class="card" id="youtube-card">
+    <h3>YouTube (live classes)</h3>
+    <div id="youtube-status" class="status-row"><span class="badge">Checking…</span></div>
+    <div id="youtube-body"></div>
+  </div>
+</main>
+
+<script src="/js/api.js"></script>
+<script>
+async function init() {
+  const user = await currentUser();
+  if (!user || user.role !== "teacher") { location.href = "/"; return; }
+
+  const params = new URLSearchParams(location.search);
+  const banner = document.getElementById("banner");
+  if (params.get("youtube") === "connected") {
+    banner.innerHTML = `<div class="notice info">&#9989; YouTube connected — live classes are ready to go.</div>`;
+  } else if (params.get("youtube") === "error") {
+    banner.innerHTML = `<div class="notice error">Connection failed: ${escapeHtml(params.get("message") || "unknown error")}</div>`;
+  }
+
+  await renderYoutube(params.get("need") === "youtube");
+}
+
+async function renderYoutube(highlightForm) {
+  const { configured, has_credentials, redirect_uri } = await api("/youtube/status");
+  const statusEl = document.getElementById("youtube-status");
+  const bodyEl = document.getElementById("youtube-body");
+
+  statusEl.innerHTML = configured
+    ? `<span class="badge open">Connected</span>`
+    : has_credentials
+      ? `<span class="badge scheduled">Credentials saved — channel not connected yet</span>`
+      : `<span class="badge ended">Not connected</span>`;
+
+  if (configured) {
+    bodyEl.innerHTML = `
+      <p class="small muted">Live classes will create real YouTube broadcasts. If you ever need to reconnect (e.g. switched Google accounts), you can run through this again.</p>
+      <a class="btn secondary" href="/api/youtube/oauth/start">Reconnect &rarr;</a>`;
+    return;
+  }
+
+  if (has_credentials) {
+    bodyEl.innerHTML = `
+      <p class="small muted">Client ID/Secret are saved. Last step — sign in with the Google account that owns your YouTube channel and grant access.</p>
+      <a class="btn" href="/api/youtube/oauth/start">Connect your YouTube channel &rarr;</a>`;
+    return;
+  }
+
+  bodyEl.innerHTML = `
+    <div style="${highlightForm ? "background:var(--accent-tint);border-radius:8px;padding:14px;" : ""}">
+      <p class="small muted"><span class="step-num">1</span> &nbsp;Create a Google Cloud project, enable <strong>YouTube Data API v3</strong> + <strong>YouTube Live Streaming API</strong>, and create an OAuth 2.0 Client ID (type: Web application). <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Open Google Cloud Console &rarr;</a></p>
+      <p class="small muted"><span class="step-num">2</span> &nbsp;Add this as an Authorized redirect URI on that client:</p>
+      <div class="redirect-uri">${escapeHtml(redirect_uri || "(BASE_URL not set — see .env)")}</div>
+      <p class="small muted" style="margin-top:14px;"><span class="step-num">3</span> &nbsp;Paste the Client ID and Client Secret it gives you:</p>
+      <form id="credentials-form">
+        <label>Client ID</label>
+        <input name="client_id" required placeholder="xxxxxxxx.apps.googleusercontent.com">
+        <label>Client Secret</label>
+        <input name="client_secret" required placeholder="GOCSPX-xxxxxxxxxxxx">
+        <div id="credentials-error" class="notice error" style="display:none;"></div>
+        <button style="margin-top:12px;">Save</button>
+      </form>
+    </div>`;
+
+  document.getElementById("credentials-form").onsubmit = async (e) => {
+    e.preventDefault();
+    const fd = Object.fromEntries(new FormData(e.target));
+    const errEl = document.getElementById("credentials-error");
+    errEl.style.display = "none";
+    try {
+      await api("/youtube/credentials", { method: "POST", body: fd });
+      await renderYoutube(false);
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.style.display = "block";
+    }
+  };
+}
+
+init();
+</script>
+</body>
+</html>

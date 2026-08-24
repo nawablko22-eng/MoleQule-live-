@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Messages — MoleQule Prep</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .inbox{display:grid;grid-template-columns:280px 1fr;gap:0;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;height:70vh;min-height:480px;background:var(--surface);}
+  @media (max-width:760px){.inbox{grid-template-columns:1fr;height:auto;}
+    .inbox.thread-open .thread-list{display:none;}
+    .inbox:not(.thread-open) .chat-pane{display:none;}
+  }
+  .thread-list{border-right:1px solid var(--line);overflow-y:auto;}
+  .thread-row{display:flex;gap:10px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer;}
+  .thread-row:hover{background:var(--surface-2);}
+  .thread-row.active{background:var(--accent-tint);}
+  .thread-row .chan-icon{font-size:1.2rem;flex:none;}
+  .thread-row .meta{min-width:0;flex:1;}
+  .thread-row .name{font-weight:600;font-size:.88rem;display:flex;align-items:center;gap:6px;}
+  .thread-row .preview{font-size:.76rem;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .chat-pane{display:flex;flex-direction:column;min-height:0;}
+  .chat-header{padding:12px 16px;border-bottom:1px solid var(--line);font-weight:600;font-size:.92rem;display:flex;align-items:center;gap:10px;}
+  .chat-header .back-btn{display:none;background:none;border:none;box-shadow:none;color:var(--ink);font-size:1.1rem;padding:2px;}
+  @media (max-width:760px){.chat-header .back-btn{display:inline-flex;}}
+  .chat-log{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;}
+  .bubble{max-width:75%;padding:9px 13px;border-radius:12px;font-size:.86rem;line-height:1.4;}
+  .bubble.in{align-self:flex-start;background:var(--surface-2);border-bottom-left-radius:3px;}
+  .bubble.out{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:3px;}
+  .chat-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--ink-soft);font-size:.88rem;}
+  .reply-row{display:flex;gap:8px;padding:12px;border-top:1px solid var(--line);}
+  .reply-row input{flex:1;}
+  .reply-row button{flex:none;}
+  .badge.chan-off{background:var(--surface-2);color:var(--ink-soft);}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="container row between">
+    <a class="brand" href="/teacher.html"><span class="dot"></span> MoleQule Prep</a>
+    <a class="btn secondary" href="/teacher.html">&larr; Back to dashboard</a>
+  </div>
+</header>
+
+<main class="container">
+  <h1 style="margin-bottom:4px;">Messages</h1>
+  <p class="small muted" style="margin-bottom:14px;">Every Telegram and WhatsApp conversation, in one inbox — reply here, it sends on whichever app the student wrote from.</p>
+  <div id="channel-status" class="small muted" style="margin-bottom:14px;"></div>
+
+  <div class="inbox" id="inbox">
+    <div class="thread-list" id="thread-list"><p class="small muted" style="padding:14px;">Loading…</p></div>
+    <div class="chat-pane">
+      <div class="chat-header" id="chat-header" style="display:none;">
+        <button class="back-btn" id="back-btn" type="button">&larr;</button>
+        <span id="chat-title"></span>
+      </div>
+      <div class="chat-log" id="chat-log"><div class="chat-empty">Pick a conversation to start replying.</div></div>
+      <form class="reply-row" id="reply-form" style="display:none;">
+        <input name="text" placeholder="Type a reply…" autocomplete="off" required>
+        <button type="submit">Send</button>
+      </form>
+    </div>
+  </div>
+  <div id="reply-error" class="notice error" style="display:none;margin-top:10px;"></div>
+</main>
+
+<script src="/js/api.js"></script>
+<script>
+let CONVERSATIONS = [];
+let ACTIVE_ID = null;
+
+function channelIcon(c) { return c === "telegram" ? "✈️" : "💬"; }
+function channelLabel(c) { return c === "telegram" ? "Telegram" : "WhatsApp"; }
+
+async function loadThreads() {
+  const { conversations, channels_configured } = await api("/conversations");
+  CONVERSATIONS = conversations;
+
+  const statusEl = document.getElementById("channel-status");
+  statusEl.innerHTML = `
+    <span class="badge ${channels_configured.telegram ? "open" : "chan-off"}">Telegram ${channels_configured.telegram ? "connected" : "not connected"}</span>
+    &nbsp;
+    <span class="badge ${channels_configured.whatsapp ? "open" : "chan-off"}">WhatsApp ${channels_configured.whatsapp ? "connected" : "not connected"}</span>`;
+
+  const list = document.getElementById("thread-list");
+  if (!conversations.length) {
+    list.innerHTML = `<p class="small muted" style="padding:14px;">No conversations yet — once a student messages your Telegram bot or WhatsApp number, it shows up here.</p>`;
+    return;
+  }
+  list.innerHTML = conversations.map((c) => `
+    <div class="thread-row ${c.id === ACTIVE_ID ? "active" : ""}" data-id="${c.id}">
+      <span class="chan-icon">${channelIcon(c.channel)}</span>
+      <div class="meta">
+        <div class="name">${escapeHtml(c.student_name || c.display_name || channelLabel(c.channel))}</div>
+        <div class="preview">${escapeHtml(c.last_message || "")}</div>
+      </div>
+    </div>`).join("");
+
+  list.querySelectorAll("[data-id]").forEach((row) => row.onclick = () => openThread(Number(row.dataset.id)));
+}
+
+async function openThread(id) {
+  ACTIVE_ID = id;
+  document.getElementById("inbox").classList.add("thread-open");
+  document.querySelectorAll(".thread-row").forEach((r) => r.classList.toggle("active", Number(r.dataset.id) === id));
+
+  const { conversation, messages } = await api(`/conversations/${id}/messages`);
+  const header = document.getElementById("chat-header");
+  header.style.display = "flex";
+  document.getElementById("chat-title").textContent =
+    `${channelIcon(conversation.channel)} ${conversation.student_name || conversation.display_name || channelLabel(conversation.channel)}`;
+
+  const log = document.getElementById("chat-log");
+  log.innerHTML = messages.length
+    ? messages.map((m) => `<div class="bubble ${m.direction}">${escapeHtml(m.body)}</div>`).join("")
+    : `<div class="chat-empty">No messages yet.</div>`;
+  log.scrollTop = log.scrollHeight;
+
+  document.getElementById("reply-form").style.display = "flex";
+}
+
+document.getElementById("back-btn").onclick = () => document.getElementById("inbox").classList.remove("thread-open");
+
+document.getElementById("reply-form").onsubmit = async (e) => {
+  e.preventDefault();
+  if (!ACTIVE_ID) return;
+  const input = e.target.elements.text;
+  const text = input.value.trim();
+  if (!text) return;
+  const errEl = document.getElementById("reply-error");
+  errEl.style.display = "none";
+  try {
+    await api(`/conversations/${ACTIVE_ID}/reply`, { method: "POST", body: { text } });
+    input.value = "";
+    await openThread(ACTIVE_ID);
+    await loadThreads();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.style.display = "block";
+  }
+};
+
+async function init() {
+  const user = await currentUser();
+  if (!user || user.role !== "teacher") { location.href = "/"; return; }
+  await loadThreads();
+  setInterval(async () => {
+    await loadThreads();
+    if (ACTIVE_ID) await openThread(ACTIVE_ID);
+  }, 8000); // light polling refresh — good enough for a small course's inbox
+}
+
+init();
+</script>
+</body>
+</html>

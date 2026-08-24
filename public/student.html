@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Courses — MoleQule Prep</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="container row between">
+    <a class="brand" href="/student.html"><span class="dot"></span> MoleQule Prep</a>
+    <div class="row">
+      <span id="who" class="small muted"></span>
+      <button class="secondary" id="notify-btn">Turn on live notifications</button>
+      <button class="secondary" id="logout-btn">Log out</button>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+  <div id="notify-status" class="small muted" style="margin-bottom:12px;"></div>
+
+  <div class="card" id="referral-card">
+    <div class="row between" style="flex-wrap:wrap;gap:10px;">
+      <div>
+        <strong>Invite friends, both of you save</strong>
+        <p class="small muted" style="margin:4px 0 0;">Share your code — when someone signs up with it, you both get a discount coupon.</p>
+      </div>
+      <div class="row" style="gap:8px;">
+        <code class="key" id="referral-code" style="padding:8px 14px;">&hellip;</code>
+        <button class="secondary" id="copy-referral-btn">Copy link</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="chat-card" style="display:none;">
+    <strong>Chat with us</strong>
+    <p class="small muted" style="margin:4px 0 12px;">Message YK Sir's team directly — same inbox, either app.</p>
+    <div class="row" style="gap:10px;flex-wrap:wrap;" id="chat-links"></div>
+  </div>
+
+  <div class="card" id="review-card">
+    <strong>Leave a review</strong>
+    <p class="small muted" style="margin:4px 0 12px;">Shown on the home page once you save it — you can edit it any time.</p>
+    <div class="row" id="star-picker" style="gap:4px;margin-bottom:10px;font-size:1.4rem;cursor:pointer;"></div>
+    <textarea id="review-text" rows="3" placeholder="What's been useful about MoleQule Prep?"></textarea>
+    <button id="review-save-btn" style="margin-top:10px;">Save review</button>
+    <p class="small muted" id="review-status" style="margin-top:8px;"></p>
+  </div>
+
+  <div class="card" id="parent-card">
+    <strong>Parent's weekly progress report</strong>
+    <p class="small muted" style="margin:4px 0 12px;">Add a parent/guardian WhatsApp number and they'll get a short weekly update — classes attended and test scores.</p>
+    <form id="parent-form" class="row" style="gap:10px;flex-wrap:wrap;">
+      <input name="parent_phone" placeholder="Parent's WhatsApp number" style="flex:1;min-width:200px;">
+      <button type="submit">Save</button>
+    </form>
+    <p class="small muted" id="parent-status" style="margin-top:8px;"></p>
+  </div>
+
+  <div id="course-list" class="grid cols-2"></div>
+  <div id="detail-pane" style="margin-top:24px;"></div>
+
+  <div class="card" id="account-card" style="margin-top:24px;">
+    <strong>Account</strong>
+    <p class="small muted" style="margin:4px 0 12px;">Deleting your account removes your registrations, cart, and purchase history from MoleQule Prep. This can't be undone.</p>
+    <button class="danger" id="delete-account-btn">Delete my account</button>
+  </div>
+</main>
+
+<script src="/js/api.js"></script>
+<script src="/js/push-client.js"></script>
+<script src="/js/track.js"></script>
+<script>
+trackEvent("visit");
+let ME = null;
+let COURSES = [];
+let CART_COURSE_IDS = new Set();
+const VALIDITY_LABELS = { 7: "7 days", 15: "15 days", 30: "1 month", 90: "3 months", 180: "6 months", 365: "12 months", 730: "24 months" };
+
+async function init() {
+  ME = await currentUser();
+  if (!ME || ME.role !== "student") { location.href = "/"; return; }
+  document.getElementById("who").textContent = ME.name;
+  document.getElementById("logout-btn").onclick = async () => { await api("/auth/logout", { method: "POST" }); location.href = "/"; };
+  document.getElementById("notify-btn").onclick = () => enablePush(document.getElementById("notify-status"));
+
+  document.getElementById("referral-code").textContent = ME.referral_code || "—";
+  document.getElementById("copy-referral-btn").onclick = async () => {
+    const link = `${location.origin}/index.html?ref=${ME.referral_code}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      document.getElementById("copy-referral-btn").textContent = "Copied!";
+      setTimeout(() => { document.getElementById("copy-referral-btn").textContent = "Copy link"; }, 1800);
+    } catch {
+      prompt("Copy your referral link:", link);
+    }
+  };
+
+  document.getElementById("delete-account-btn").onclick = async () => {
+    if (!confirm("Delete your account? This removes your registrations, cart, and purchase history and can't be undone.")) return;
+    if (!confirm("Are you absolutely sure? This is permanent.")) return;
+    try {
+      await api("/auth/me", { method: "DELETE" });
+      location.href = "/home.html";
+    } catch (err) {
+      alert("Couldn't delete your account: " + err.message);
+    }
+  };
+
+  document.getElementById("parent-form").querySelector("[name=parent_phone]").value = ME.parent_phone || "";
+  document.getElementById("parent-form").onsubmit = async (e) => {
+    e.preventDefault();
+    const statusEl = document.getElementById("parent-status");
+    const value = e.target.parent_phone.value;
+    try {
+      const { user } = await api("/auth/me", { method: "PATCH", body: { parent_phone: value } });
+      ME = user;
+      statusEl.textContent = value.trim() ? "Saved — weekly reports will go to this number." : "Removed.";
+    } catch (err) {
+      statusEl.textContent = err.message;
+    }
+  };
+
+  loadChatLinks();
+  setupReviewForm();
+  await loadCartState();
+  await loadCourses();
+
+  const params = new URLSearchParams(location.search);
+  if (params.get("course")) openCourse(Number(params.get("course")));
+}
+
+let REVIEW_RATING = 0;
+
+function renderStarPicker() {
+  const picker = document.getElementById("star-picker");
+  picker.innerHTML = [1, 2, 3, 4, 5].map((n) => `<span data-star="${n}">${n <= REVIEW_RATING ? "★" : "☆"}</span>`).join("");
+  picker.querySelectorAll("[data-star]").forEach((el) => {
+    el.style.color = "var(--gold)";
+    el.onclick = () => { REVIEW_RATING = Number(el.dataset.star); renderStarPicker(); };
+  });
+}
+
+async function setupReviewForm() {
+  renderStarPicker();
+  try {
+    const { review } = await api("/reviews/me");
+    if (review) {
+      REVIEW_RATING = review.rating;
+      renderStarPicker();
+      document.getElementById("review-text").value = review.text;
+      document.getElementById("review-status").textContent = review.visible
+        ? "Your review is live on the home page."
+        : "Your review is saved but currently hidden by the team.";
+    }
+  } catch { /* not a student, or a network hiccup */ }
+
+  document.getElementById("review-save-btn").onclick = async () => {
+    const statusEl = document.getElementById("review-status");
+    const text = document.getElementById("review-text").value;
+    if (!REVIEW_RATING) { statusEl.textContent = "Pick a star rating first."; return; }
+    try {
+      const { review } = await api("/reviews", { method: "POST", body: { rating: REVIEW_RATING, text } });
+      statusEl.textContent = review.visible ? "Saved — live on the home page." : "Saved.";
+    } catch (err) {
+      statusEl.textContent = err.message;
+    }
+  };
+}
+
+async function loadChatLinks() {
+  try {
+    const { whatsapp, telegram_bot } = await api("/social");
+    const links = [];
+    if (telegram_bot) links.push(`<a class="btn secondary" target="_blank" href="https://t.me/${telegram_bot}?start=${ME.id}">&#9992;&#65039; Chat on Telegram</a>`);
+    if (whatsapp) links.push(`<a class="btn secondary" target="_blank" href="${whatsapp}">&#128172; Chat on WhatsApp</a>`);
+    if (links.length) {
+      document.getElementById("chat-links").innerHTML = links.join("");
+      document.getElementById("chat-card").style.display = "block";
+    }
+  } catch { /* no channels configured yet — card just stays hidden */ }
+}
+
+async function loadCartState() {
+  try {
+    const { items } = await api("/cart");
+    CART_COURSE_IDS = new Set(items.map((i) => i.course_id));
+  } catch { CART_COURSE_IDS = new Set(); } // not a student session, or a network hiccup
+}
+
+// Free courses register directly (POST /enroll — the server itself
+// refuses this for a priced course, see routes/courses.js). A paid
+// course has to go through cart + checkout instead, same as the home
+// page's ADD button — this just adds it to the cart from here too.
+function courseActionHtml(c) {
+  if (c.is_enrolled) return "";
+  if (c.price <= 0) return `<button class="secondary" data-enroll="${c.id}">Register (free)</button>`;
+  if (CART_COURSE_IDS.has(c.id)) return `<a class="btn secondary" href="/cart.html">&#10003; In cart</a>`;
+  return `<button class="secondary" data-add-cart="${c.id}">Add to cart — &#8377;${c.price}</button>`;
+}
+
+function accessLine(c) {
+  const validityText = VALIDITY_LABELS[c.validity_days] || "Lifetime";
+  if (c.is_enrolled) {
+    return c.access_expires_at
+      ? `Access until ${escapeHtml(c.access_expires_at.slice(0, 10))}`
+      : "Lifetime access";
+  }
+  if (c.access_expired) {
+    return `<span style="color:var(--danger);">Access expired ${escapeHtml((c.access_expires_at || "").slice(0, 10))} — register again below</span>`;
+  }
+  return `${validityText} access`;
+}
+
+async function loadCourses() {
+  const { courses, validity_labels } = await api("/courses");
+  COURSES = courses;
+  if (validity_labels) Object.assign(VALIDITY_LABELS, validity_labels);
+  const el = document.getElementById("course-list");
+  el.innerHTML = courses.map((c) => `
+    <div class="card">
+      <div class="row between">
+        <strong>${escapeHtml(c.title)}</strong>
+        ${c.is_enrolled ? "<span class='badge enrolled'>Registered</span>" : c.access_expired ? "<span class='badge live'>Expired</span>" : ""}
+      </div>
+      <p class="small muted">${escapeHtml(c.description || "")}</p>
+      <p class="small muted">${c.price > 0 ? "₹" + c.price : "Free"} &middot; ${c.student_count} students &middot; ${accessLine(c)}</p>
+      <div class="video-actions">
+        <button data-open="${c.id}">View course</button>
+        ${courseActionHtml(c)}
+      </div>
+    </div>`).join("") || "<p class='muted'>No courses published yet.</p>";
+
+  el.querySelectorAll("[data-open]").forEach((b) => b.onclick = () => openCourse(Number(b.dataset.open)));
+  el.querySelectorAll("[data-enroll]").forEach((b) => b.onclick = async () => {
+    await api(`/courses/${b.dataset.enroll}/enroll`, { method: "POST" });
+    await loadCourses();
+  });
+  el.querySelectorAll("[data-add-cart]").forEach((b) => b.onclick = async () => {
+    await api("/cart", { method: "POST", body: { course_id: Number(b.dataset.addCart) } });
+    await loadCartState();
+    await loadCourses();
+  });
+}
+
+async function openCourse(id) {
+  trackEvent("course_view", id);
+  const pane = document.getElementById("detail-pane");
+  pane.innerHTML = "<p class='muted'>Loading…</p>";
+  const course = COURSES.find((c) => c.id === id);
+  const [{ live_classes }, { videos }, { tests }] = await Promise.all([
+    api(`/courses/${id}/live-classes`),
+    api(`/courses/${id}/videos`),
+    api(`/courses/${id}/tests`),
+  ]);
+
+  const liveNow = live_classes.find((lc) => lc.status === "live");
+  const upcoming = live_classes.filter((lc) => lc.status === "scheduled");
+
+  pane.innerHTML = `
+    <div class="card">
+      <h2>${escapeHtml(course.title)}</h2>
+      ${!course.is_enrolled ? `<div class="notice warn">Register for this course to unlock everything marked "Registered only" below.
+        <button style="margin-left:8px;" data-enroll2="${id}">Register (free)</button></div>` : ""}
+      ${liveNow ? `
+        <div class="notice error" style="display:flex;align-items:center;gap:10px;">
+          <span class="pulse"></span> <strong>${escapeHtml(liveNow.title)}</strong> is live right now.
+          <a class="btn" style="margin-left:auto;" href="/watch.html?live=${liveNow.id}">Join live &rarr;</a>
+        </div>` : ""}
+      ${!liveNow && upcoming.length ? `<div class="notice info">Upcoming: ${upcoming.map((u) => escapeHtml(u.title)).join(", ")}</div>` : ""}
+    </div>
+
+    <div class="card">
+      <h3>Video library</h3>
+      <div id="student-video-grid" class="grid cols-3"></div>
+    </div>
+
+    <div class="card">
+      <h3>Test series</h3>
+      <div id="student-test-list">${tests.length ? "" : "<p class='muted small'>No tests yet.</p>"}</div>
+    </div>`;
+
+  const testListEl = document.getElementById("student-test-list");
+  if (tests.length) {
+    testListEl.innerHTML = tests.map((t) => `
+      <div class="row between" style="padding:10px 0;border-bottom:1px solid var(--line);">
+        <div>
+          <strong>${escapeHtml(t.title)}</strong>
+          <div class="small muted">${t.question_count} question${t.question_count === 1 ? "" : "s"}${t.attempt_count ? ` &middot; best score: ${t.best_score}/${t.question_count}` : ""}</div>
+        </div>
+        <a class="btn secondary" href="/test.html?id=${t.id}">${t.attempt_count ? "Retake" : "Take test"}</a>
+      </div>`).join("");
+  }
+
+  const enrollBtn = pane.querySelector("[data-enroll2]");
+  if (enrollBtn) enrollBtn.onclick = async () => { await api(`/courses/${id}/enroll`, { method: "POST" }); await loadCourses(); openCourse(id); };
+
+  const grid = document.getElementById("student-video-grid");
+  if (!videos.length) {
+    grid.innerHTML = "<p class='muted small'>No videos yet — check back after the next live class.</p>";
+  } else {
+    grid.innerHTML = videos.map((v) => `
+      <div class="video-card">
+        <a href="https://www.youtube.com/watch?v=${v.youtube_video_id}" target="_blank" class="video-thumb" style="${v.thumbnail_path ? `background-image:url('${v.thumbnail_path}')` : ""}">
+          <span class="video-num">#${v.video_number}</span>
+        </a>
+        <div class="video-body">
+          <strong>${escapeHtml(v.title)}</strong>
+          <div class="video-actions">
+            <a class="btn secondary" target="_blank" href="https://www.youtube.com/watch?v=${v.youtube_video_id}">Watch</a>
+            ${v.pdf_path ? `<a class="btn secondary" target="_blank" href="/api/videos/${v.id}/pdf">Notes (PDF)</a>` : ""}
+          </div>
+        </div>
+      </div>`).join("");
+  }
+}
+
+init();
+</script>
+</body>
+</html>

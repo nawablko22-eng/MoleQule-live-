@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAQ — MoleQule Prep</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .faq-wrap{max-width:720px;margin:0 auto;padding:36px 0 60px;}
+  .faq-wrap h1{margin-bottom:24px;}
+  .faq-item{border-bottom:1px solid var(--line);}
+  .faq-item:last-child{border-bottom:none;}
+  .faq-q{
+    width:100%;text-align:left;background:none;border:none;box-shadow:none;color:var(--ink);
+    padding:16px 4px;font-size:.95rem;font-weight:600;cursor:pointer;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+  }
+  .faq-q:active{transform:none;}
+  .faq-q .chev{color:var(--ink-soft);font-size:.8rem;transition:transform .15s;flex:none;}
+  .faq-item.open .faq-q .chev{transform:rotate(180deg);}
+  .faq-a{max-height:0;overflow:hidden;transition:max-height .2s ease;}
+  .faq-item.open .faq-a{max-height:400px;}
+  .faq-a p{color:var(--ink-soft);font-size:.88rem;line-height:1.6;padding:0 4px 16px;}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="container row between">
+    <a class="brand" href="/home.html"><span class="dot"></span> MoleQule Prep</a>
+    <a href="/home.html" class="small muted" style="text-decoration:none;">&larr; Back to home</a>
+  </div>
+</header>
+
+<main class="container faq-wrap">
+  <h1>Frequently asked questions</h1>
+  <div id="faq-list"></div>
+</main>
+
+<script>
+const FAQS = [
+  { q: "How do I join a live class?", a: "Register for the course (free), and when YK Sir goes live you'll see a red \"Join live →\" button on that course's page, plus a notification if you've turned those on." },
+  { q: "How do I get notified about live classes?", a: "Log in as a student, open your courses page, and click \"Turn on live notifications\". You'll get a notification the moment a class is scheduled, and again 5 minutes before it starts." },
+  { q: "How do I buy a paid course?", a: "Tap ADD on any paid course on the home page — it goes into your cart, just like an e-commerce app. Open the cart from the top-right icon or the floating \"View cart\" bar, apply a coupon if you have one, and pay. Free courses skip the cart — just tap \"Register free\"." },
+  { q: "Can I sign up with Google instead of a phone number?", a: "Yes — use \"Continue with Google\" on the login page. You can also sign up with just a phone number and password. Whichever you choose, we'll ask for whatever contact detail (email or phone) is still missing when you first visit your cart, so purchases and receipts work properly." },
+  { q: "I forgot my password — what now?", a: "On the login page, tap \"Forgot password?\", enter the email on your account, and we'll send a reset link. This only works for accounts that have an email on file — if you signed up with just a phone number, add an email from your account page first, or contact support." },
+  { q: "What's a referral code and how does it work?", a: "Every student gets a personal referral link from their courses page (\"Invite friends, both of you save\"). When someone signs up using your link, you both automatically get a discount coupon." },
+  { q: "How do I use a coupon code?", a: "In your cart, enter the code in the \"Coupon code\" box and tap Apply — the discount is shown immediately and applied at payment. Coupons can be limited by expiry date or number of uses, so an expired or fully-used code will show an error." },
+  { q: "Can I delete my account?", a: "Yes — from your courses page, under \"Account\", tap \"Delete my account\". This permanently removes your registrations, cart, and purchase history and can't be undone." },
+  { q: "Is my payment information safe?", a: "Yes. Card, UPI, and bank details are entered directly into our payment gateway's own secure checkout — MoleQule Prep never sees or stores them. See our Privacy Policy for more detail." },
+  { q: "Where can I watch course videos after a live class?", a: "Every course has a video library tab — once YK Sir uploads the recording, it shows up there along with any PDF notes attached to it." },
+];
+
+const list = document.getElementById("faq-list");
+list.innerHTML = FAQS.map((f, i) => `
+  <div class="faq-item" data-i="${i}">
+    <button type="button" class="faq-q">${f.q}<span class="chev">&#9660;</span></button>
+    <div class="faq-a"><p>${f.a}</p></div>
+  </div>`).join("");
+
+list.querySelectorAll(".faq-item").forEach((item) => {
+  item.querySelector(".faq-q").onclick = () => item.classList.toggle("open");
+});
+</script>
+</body>
+</html>

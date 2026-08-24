@@ -1,0 +1,107 @@
+:root{
+  --bg:#F1F5F3; --surface:#fff; --surface-2:#E7EFEA; --ink:#10221D;
+  --ink-soft:#48594F; --ink-faint:#7A8B80; --line:#D3E0D9;
+  --accent:#0E7A5F; --accent-strong:#0A5C47; --accent-tint:#DCEFE6;
+  --gold:#B9791C; --gold-tint:#F6E7CC; --danger:#B3261E; --danger-tint:#FBE4E2;
+  --radius:8px;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  line-height:1.5;
+}
+a{color:var(--accent-strong);}
+h1,h2,h3{margin:0 0 8px;}
+.container{max-width:1080px;margin:0 auto;padding:0 20px;}
+header.topbar{
+  background:var(--surface); border-bottom:1px solid var(--line);
+  padding:14px 0; position:sticky; top:0; z-index:10;
+}
+header.topbar .row{display:flex; align-items:center; justify-content:space-between;}
+.brand{font-weight:700; font-size:1.2rem; text-decoration:none; color:var(--ink); display:flex; gap:8px; align-items:center;}
+.brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);}
+main{padding:32px 0 80px;}
+.card{
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+  padding:20px; margin-bottom:16px;
+}
+.grid{display:grid; gap:16px;}
+.grid.cols-2{grid-template-columns:repeat(2,1fr);}
+.grid.cols-3{grid-template-columns:repeat(3,1fr);}
+@media (max-width:800px){ .grid.cols-2,.grid.cols-3{grid-template-columns:1fr;} }
+
+label{display:block; font-size:.85rem; font-weight:600; margin:12px 0 4px; color:var(--ink-soft);}
+input,select,textarea{
+  width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:6px;
+  font-size:.95rem; background:var(--surface); color:var(--ink);
+}
+textarea{min-height:80px;}
+/* 3D / "pressable" buttons everywhere: a solid drop shadow stands in for
+   the button's own bottom edge, and pressing it flattens that edge and
+   nudges the button down — the classic skeuomorphic push-button feel. */
+button, .btn{
+  display:inline-flex; align-items:center; gap:8px; cursor:pointer;
+  border:1px solid transparent; border-radius:8px; padding:10px 18px;
+  font-size:.92rem; font-weight:600; color:#fff; text-decoration:none;
+  background:linear-gradient(180deg, var(--accent) 0%, var(--accent-strong) 100%);
+  box-shadow: 0 3px 0 var(--accent-strong), 0 6px 14px rgba(10,92,71,.28);
+  position:relative; transition: transform .08s ease, box-shadow .08s ease, filter .12s ease;
+}
+button:hover, .btn:hover{filter:brightness(1.06);}
+button:active, .btn:active{
+  transform:translateY(3px);
+  box-shadow: 0 0 0 var(--accent-strong), 0 2px 6px rgba(10,92,71,.25);
+}
+button.secondary, .btn.secondary{
+  background:linear-gradient(180deg, #ffffff 0%, var(--surface-2) 100%); color:var(--ink);
+  border:1px solid var(--line);
+  box-shadow: 0 3px 0 var(--line), 0 5px 12px rgba(16,34,29,.10);
+}
+button.secondary:hover, .btn.secondary:hover{border-color:var(--accent); filter:none;}
+button.secondary:active, .btn.secondary:active{box-shadow: 0 0 0 var(--line), 0 2px 6px rgba(16,34,29,.08);}
+button.danger, .btn.danger{
+  background:linear-gradient(180deg, var(--danger) 0%, #8f1e18 100%);
+  box-shadow: 0 3px 0 #8f1e18, 0 6px 14px rgba(179,38,30,.28);
+}
+button.danger:active, .btn.danger:active{box-shadow: 0 0 0 #8f1e18, 0 2px 6px rgba(179,38,30,.25);}
+button:disabled{opacity:.5; cursor:not-allowed; transform:none; box-shadow:none;}
+/* Flat exceptions — text-style buttons that should never look raised */
+.tabs button, .tabs button:active, .remove-btn, .remove-btn:active{
+  box-shadow:none; transform:none; background:none;
+}
+
+.badge{
+  display:inline-flex; align-items:center; padding:3px 10px; border-radius:999px;
+  font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
+}
+.badge.live{background:var(--danger-tint); color:var(--danger);}
+.badge.scheduled{background:var(--gold-tint); color:#5c3d0e;}
+.badge.ended{background:var(--surface-2); color:var(--ink-soft);}
+.badge.open{background:var(--accent-tint); color:var(--accent-strong);}
+.badge.enrolled{background:var(--surface-2); color:var(--ink-soft);}
+
+.pulse{
+  width:8px;height:8px;border-radius:50%;background:var(--danger);display:inline-block;
+  animation:pulse 1.4s infinite;
+}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(179,38,30,.5);}70%{box-shadow:0 0 0 8px rgba(179,38,30,0);}100%{box-shadow:0 0 0 0 rgba(179,38,30,0);}}
+
+.video-card{display:flex; flex-direction:column; border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; background:var(--surface);}
+.video-thumb{aspect-ratio:16/9; background:var(--surface-2) center/cover no-repeat; display:flex; align-items:center; justify-content:center; color:var(--ink-faint); font-size:.8rem; position:relative;}
+.video-num{position:absolute; top:8px; left:8px; background:rgba(16,34,29,.75); color:#fff; font-size:.72rem; font-weight:700; padding:2px 8px; border-radius:4px;}
+.video-body{padding:12px 14px; display:flex; flex-direction:column; gap:8px; flex:1;}
+.video-actions{display:flex; gap:8px; flex-wrap:wrap;}
+.small{font-size:.8rem; color:var(--ink-faint);}
+.muted{color:var(--ink-soft);}
+.notice{padding:12px 14px; border-radius:6px; font-size:.88rem; margin:12px 0;}
+.notice.info{background:var(--accent-tint); color:var(--accent-strong);}
+.notice.error{background:var(--danger-tint); color:var(--danger);}
+.notice.warn{background:var(--gold-tint); color:#5c3d0e;}
+.tabs{display:flex; gap:4px; border-bottom:1px solid var(--line); margin-bottom:20px;}
+.tabs button{background:none; border:none; color:var(--ink-soft); padding:10px 4px; border-bottom:2px solid transparent; border-radius:0;}
+.tabs button.active{color:var(--accent-strong); border-color:var(--accent);}
+.row{display:flex; gap:10px; align-items:center;}
+.row.between{justify-content:space-between;}
+.kv{display:flex; justify-content:space-between; font-size:.85rem; padding:4px 0; border-bottom:1px dashed var(--line);}
+code.key{background:var(--surface-2); padding:6px 10px; border-radius:4px; font-size:.8rem; display:block; word-break:break-all; margin-top:4px;}

@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teacher dashboard — MoleQule Prep</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="container row between">
+    <a class="brand" href="/teacher.html"><span class="dot"></span> MoleQule Prep</a>
+    <div class="row">
+      <span id="who" class="small muted"></span>
+      <a class="btn secondary" href="/admin.html">Admin &middot; Analytics</a>
+      <a class="btn secondary" href="/coupons.html">Coupons</a>
+      <a class="btn secondary" href="/messages.html">Messages</a>
+      <a class="btn secondary" href="/settings.html">Settings</a>
+      <button class="secondary" id="logout-btn">Log out</button>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+  <div id="youtube-warning" class="notice warn" style="display:none;">
+    YouTube isn't connected yet, so "Go Live" won't work until you finish the one-time setup.
+    <a href="/settings.html">Connect your YouTube channel &rarr;</a>
+  </div>
+
+  <div class="grid cols-2" style="align-items:start;">
+    <div>
+      <div class="card">
+        <h2>Create a course</h2>
+        <form id="course-form">
+          <label>Course title</label>
+          <input name="title" required placeholder="e.g. Organic Chemistry — JEE/NEET">
+          <label>Description</label>
+          <textarea name="description" placeholder="What this course covers"></textarea>
+          <label style="display:flex;align-items:center;gap:8px;margin-top:12px;">
+            <input type="checkbox" id="free-course-checkbox" style="width:auto;">
+            <span>This is a free course</span>
+          </label>
+          <label>Price (₹)</label>
+          <input name="price" id="price-input" type="number" min="1" step="1" value="" placeholder="e.g. 2999" required>
+          <label>Access validity — how long a student's registration lasts</label>
+          <select name="validity_days" required>
+            <option value="" disabled selected>Choose validity…</option>
+            <option value="7">7 days</option>
+            <option value="15">15 days</option>
+            <option value="30">1 month</option>
+            <option value="90">3 months</option>
+            <option value="180">6 months</option>
+            <option value="365">12 months</option>
+            <option value="730">24 months</option>
+          </select>
+          <p class="small muted" style="margin:2px 0 0;">Applies to every registration for this course — free or paid. A student's access to live classes, videos and tests stops once it runs out; you can change this later for future registrations, but it won't shorten or extend anyone already registered.</p>
+          <button style="margin-top:12px;">Create course</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Your courses</h2>
+        <div id="course-list" class="small muted">Loading…</div>
+      </div>
+    </div>
+
+    <div id="detail-pane">
+      <div class="card">
+        <p class="muted">Select a course on the left to schedule a live class, manage its video library, or see registered students.</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="/js/api.js"></script>
+<script>
+let ME = null;
+let MY_COURSES = [];
+let SELECTED_COURSE = null;
+const VALIDITY_LABELS = { 7: "7 days", 15: "15 days", 30: "1 month", 90: "3 months", 180: "6 months", 365: "12 months", 730: "24 months" };
+
+async function init() {
+  ME = await currentUser();
+  if (!ME || ME.role !== "teacher") { location.href = "/"; return; }
+  document.getElementById("who").textContent = ME.name + " (teacher)";
+  document.getElementById("logout-btn").onclick = async () => { await api("/auth/logout", { method: "POST" }); location.href = "/"; };
+
+  const { configured } = await api("/youtube/status");
+  document.getElementById("youtube-warning").style.display = configured ? "none" : "block";
+
+  await loadCourses();
+}
+
+async function loadCourses() {
+  const { courses } = await api("/courses");
+  MY_COURSES = courses.filter((c) => c.teacher_id === ME.id);
+  const list = document.getElementById("course-list");
+  if (!MY_COURSES.length) { list.innerHTML = "<p class='muted small'>No courses yet — create one above.</p>"; return; }
+  list.innerHTML = MY_COURSES.map((c) => `
+    <div class="row between" style="padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer;" data-course="${c.id}">
+      <div>
+        <strong>${escapeHtml(c.title)}</strong>
+        <div class="small muted">${c.student_count} registered student(s) &middot; ${c.price > 0 ? "₹" + c.price : "Free"} &middot; ${VALIDITY_LABELS[c.validity_days] || "Lifetime"} access</div>
+      </div>
+      <span class="small muted">Open &rarr;</span>
+    </div>`).join("");
+  [...list.querySelectorAll("[data-course]")].forEach((el) => {
+    el.onclick = () => openCourse(Number(el.dataset.course));
+  });
+}
+
+const freeCheckbox = document.getElementById("free-course-checkbox");
+const priceInput = document.getElementById("price-input");
+freeCheckbox.onchange = () => {
+  if (freeCheckbox.checked) {
+    priceInput.value = "0";
+    priceInput.disabled = true;
+    priceInput.required = false;
+  } else {
+    priceInput.value = "";
+    priceInput.disabled = false;
+    priceInput.required = true;
+  }
+};
+
+document.getElementById("course-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const body = Object.fromEntries(fd);
+  if (freeCheckbox.checked) body.price = "0"; // disabled inputs aren't included in FormData
+  await api("/courses", { method: "POST", body });
+  e.target.reset();
+  priceInput.disabled = false;
+  priceInput.required = true;
+  await loadCourses();
+};
+
+async function openCourse(id) {
+  SELECTED_COURSE = MY_COURSES.find((c) => c.id === id);
+  renderDetail();
+}
+
+function renderDetail() {
+  const c = SELECTED_COURSE;
+  const pane = document.getElementById("detail-pane");
+  pane.innerHTML = `
+    <div class="card">
+      <h2>${escapeHtml(c.title)}</h2>
+      <p class="small muted">${escapeHtml(c.description || "")}</p>
+      <div class="row" style="gap:8px;align-items:center;margin-bottom:10px;">
+        <span class="small muted">Access validity:</span>
+        <select id="validity-edit-select">
+          ${Object.entries(VALIDITY_LABELS).map(([days, label]) => `<option value="${days}" ${Number(days) === c.validity_days ? "selected" : ""}>${label}</option>`).join("")}
+        </select>
+        <button class="secondary" id="validity-save-btn" style="padding:6px 12px;font-size:.82rem;">Save</button>
+        <span class="small muted" id="validity-save-status"></span>
+      </div>
+      <p class="small muted" style="margin:-6px 0 10px;">Only affects future registrations/renewals — students already registered keep the access length they signed up with.</p>
+      <div class="tabs">
+        <button data-tab="live" class="active">Live classes</button>
+        <button data-tab="content">Content library</button>
+        <button data-tab="students">Students (${c.student_count})</button>
+        <button data-tab="tests">Tests</button>
+        <button data-tab="advertise">Advertise</button>
+      </div>
+      <div id="tab-live"></div>
+      <div id="tab-content" style="display:none;"></div>
+      <div id="tab-students" style="display:none;"></div>
+      <div id="tab-tests" style="display:none;"></div>
+      <div id="tab-advertise" style="display:none;"></div>
+    </div>`;
+
+  const tabs = pane.querySelectorAll("[data-tab]");
+  tabs.forEach((t) => t.onclick = () => {
+    tabs.forEach((x) => x.classList.remove("active"));
+    t.classList.add("active");
+    ["live","content","students","tests","advertise"].forEach((k) => {
+      document.getElementById("tab-"+k).style.display = (k === t.dataset.tab) ? "block" : "none";
+    });
+  });
+
+  document.getElementById("validity-save-btn").onclick = async () => {
+    const statusEl = document.getElementById("validity-save-status");
+    const validityDays = document.getElementById("validity-edit-select").value;
+    try {
+      const { course } = await api(`/courses/${c.id}`, { method: "PATCH", body: { validity_days: validityDays } });
+      SELECTED_COURSE.validity_days = course.validity_days;
+      const idx = MY_COURSES.findIndex((x) => x.id === course.id);
+      if (idx >= 0) MY_COURSES[idx].validity_days = course.validity_days;
+      statusEl.textContent = "Saved.";
+    } catch (err) {
+      statusEl.textContent = err.message;
+    }
+  };
+
+  renderLiveTab();
+  renderContentTab();
+  renderStudentsTab();
+  renderTestsTab();
+  renderAdvertiseTab();
+}
+
+// ---------------- Live classes ----------------
+async function renderLiveTab() {
+  const el = document.getElementById("tab-live");
+  el.innerHTML = `
+    <form id="schedule-form" style="margin:16px 0;padding:14px;background:var(--surface-2);border-radius:8px;">
+      <label>Class title</label>
+      <input name="title" required placeholder="e.g. Doubt session — Isomerism">
+
+      <label>When is this class?</label>
+      <input type="datetime-local" name="scheduled_at" required>
+      <p class="small muted" style="margin:2px 0 0;">Students are notified the moment you create this class, and get an automatic reminder 5 minutes before this time — plus the usual "live now" push once you actually start streaming.</p>
+
+      <label>Who can join &amp; gets notified — inside this app?</label>
+      <select name="access_type" id="access-type-select">
+        <option value="enrolled_only">Registered students only (enrolled in this course)</option>
+        <option value="open_to_all">Everyone (registered + non-registered)</option>
+      </select>
+      <p class="small muted" style="margin:2px 0 0;">This is the real gate — the app only ever hands the watch link/notification to whoever this allows.</p>
+
+      <label>YouTube's own privacy setting for this broadcast</label>
+      <select name="privacy_status" id="privacy-select">
+        <option value="unlisted">Unlisted — recommended. Not searchable on YouTube; only reachable through this app's link.</option>
+        <option value="public">Public — also listed/searchable on YouTube itself.</option>
+        <option value="private">Private — YouTube itself blocks anyone you haven't individually invited by Google account, even with the link. Not practical for a full class.</option>
+      </select>
+      <p class="small muted" style="margin:2px 0 0;">This only changes who can find/open the broadcast <em>on YouTube</em> — access to registered students is already enforced above.</p>
+
+      <button style="margin-top:12px;">Create live class</button>
+      <div id="schedule-error" class="notice error" style="display:none;"></div>
+    </form>
+    <div id="live-list" class="small muted">Loading…</div>`;
+
+  // Suggest a sensible privacy default when access_type changes — teacher
+  // can still override it before submitting.
+  const accessSelect = document.getElementById("access-type-select");
+  const privacySelect = document.getElementById("privacy-select");
+  accessSelect.onchange = () => {
+    privacySelect.value = accessSelect.value === "open_to_all" ? "public" : "unlisted";
+  };
+
+  document.getElementById("schedule-form").onsubmit = async (e) => {
+    e.preventDefault();
+    const fd = Object.fromEntries(new FormData(e.target));
+    // <input type="datetime-local"> gives "YYYY-MM-DDTHH:mm" in the
+    // browser's own local time zone — convert to a real ISO/UTC instant
+    // before sending, so the server (and the reminder timer) don't have
+    // to guess what time zone the teacher meant.
+    if (fd.scheduled_at) {
+      const d = new Date(fd.scheduled_at);
+      fd.scheduled_at = isNaN(d.getTime()) ? "" : d.toISOString();
+    }
+    const errEl = document.getElementById("schedule-error");
+    errEl.style.display = "none";
+    try {
+      const { live_class, go_live, notified } = await api(`/courses/${SELECTED_COURSE.id}/live-classes`, { method: "POST", body: fd });
+      e.target.reset();
+      await loadLiveList();
+      showGoLive(live_class, go_live, notified);
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.style.display = "block";
+    }
+  };
+
+  await loadLiveList();
+}
+
+function showGoLive(liveClass, goLive, notified) {
+  const box = document.createElement("div");
+  box.className = "notice info";
+  box.innerHTML = `
+    <strong>"${escapeHtml(liveClass.title)}" is ready</strong> — visibility on YouTube: <span class="badge open">${escapeHtml(goLive.privacy_status || "")}</span>
+    ${notified?.note ? `<p class="small" style="margin-top:8px;">📣 ${escapeHtml(notified.note)}</p>` : ""}
+    <div class="video-actions" style="margin-top:10px;">
+      <a class="btn" target="_blank" href="${escapeHtml(goLive.studio_url)}">Open YouTube Studio — go live now &rarr;</a>
+    </div>
+    <p class="small" style="margin-top:10px;">One click above takes you straight into YouTube's own live control room for this class — go live from your webcam right there, no extra software needed.</p>
+    <details style="margin-top:6px;">
+      <summary style="cursor:pointer;">Prefer OBS or another encoder instead?</summary>
+      <label style="margin-top:8px;">Server / Ingestion URL</label>
+      <code class="key">${escapeHtml(goLive.ingestion_url)}</code>
+      <label>Stream key</label>
+      <code class="key">${escapeHtml(goLive.stream_key)}</code>
+    </details>
+    <p class="small muted" style="margin-top:8px;">${escapeHtml(goLive.note)}</p>`;
+  document.getElementById("tab-live").prepend(box);
+}
+
+async function loadLiveList() {
+  const { live_classes } = await api(`/courses/${SELECTED_COURSE.id}/live-classes`);
+  const el = document.getElementById("live-list");
+  if (!live_classes.length) { el.innerHTML = "<p class='muted small'>No live classes scheduled yet.</p>"; return; }
+  el.innerHTML = live_classes.map((lc) => `
+    <div class="card" style="margin-bottom:10px;">
+      <div class="row between">
+        <div>
+          <strong>${escapeHtml(lc.title)}</strong>
+          <div class="row" style="margin-top:6px;">
+            <span class="badge ${lc.status}">${lc.status === "live" ? "<span class='pulse'></span> Live" : lc.status}</span>
+            <span class="badge ${lc.access_type === "open_to_all" ? "open" : "enrolled"}">${lc.access_type === "open_to_all" ? "Everyone" : "Registered only"}</span>
+          </div>
+          ${lc.scheduled_at ? `<div class="small muted" style="margin-top:4px;">Scheduled for ${escapeHtml(new Date(lc.scheduled_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }))}${lc.status === "scheduled" ? (lc.reminder_sent_at ? " · 5-min reminder sent" : " · 5-min reminder pending") : ""}</div>` : ""}
+        </div>
+        <div class="video-actions">
+          ${lc.status === "scheduled" && lc.youtube_studio_url ? `<a class="btn" target="_blank" href="${lc.youtube_studio_url}">Open YouTube Studio — go live &rarr;</a>` : ""}
+          ${lc.status === "scheduled" && lc.youtube_stream_key ? `<button class="secondary" data-key="${lc.id}">OBS details</button>` : ""}
+          ${lc.status !== "ended" ? `<button class="danger" data-end="${lc.id}">End class</button>` : ""}
+          ${lc.status !== "scheduled" ? `<button class="secondary" data-attendance="${lc.id}">Attendance</button>` : ""}
+          ${lc.youtube_broadcast_id ? `<a class="btn secondary" target="_blank" href="https://www.youtube.com/watch?v=${lc.youtube_broadcast_id}">View on YouTube</a>` : ""}
+        </div>
+      </div>
+      <div class="attendance-pane" id="attendance-${lc.id}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);"></div>
+    </div>`).join("");
+
+  el.querySelectorAll("[data-key]").forEach((btn) => btn.onclick = () => {
+    const lc = live_classes.find((x) => x.id === Number(btn.dataset.key));
+    showGoLive(lc, {
+      ingestion_url: lc.youtube_ingestion_url,
+      stream_key: lc.youtube_stream_key,
+      studio_url: lc.youtube_studio_url,
+      privacy_status: lc.youtube_privacy_status,
+      note: "Paste these into OBS to go live, or use the YouTube Studio link above instead.",
+    });
+  });
+  el.querySelectorAll("[data-end]").forEach((btn) => btn.onclick = async () => {
+    if (!confirm("End this live class now?")) return;
+    await api(`/live-classes/${btn.dataset.end}/end`, { method: "POST" });
+    await loadLiveList();
+  });
+  el.querySelectorAll("[data-attendance]").forEach((btn) => btn.onclick = () => toggleAttendance(Number(btn.dataset.attendance)));
+}
+
+function fmtDuration(joinedAt, lastSeenAt) {
+  const mins = Math.max(1, Math.round((new Date(lastSeenAt.replace(" ", "T") + "Z") - new Date(joinedAt.replace(" ", "T") + "Z")) / 60000));
+  return mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)}h ${mins % 60}m`;
+}
+
+async function toggleAttendance(liveClassId) {
+  const pane = document.getElementById("attendance-" + liveClassId);
+  const open = pane.style.display !== "none";
+  if (open) { pane.style.display = "none"; return; }
+  pane.style.display = "block";
+  pane.innerHTML = "<p class='small muted'>Loading…</p>";
+  const { attendance } = await api(`/live-classes/${liveClassId}/attendance`);
+  if (!attendance.length) { pane.innerHTML = "<p class='small muted'>No one has joined yet.</p>"; return; }
+  pane.innerHTML = `
+    <p class="small muted" style="margin-bottom:6px;">${attendance.length} student${attendance.length === 1 ? "" : "s"} joined</p>
+    ${attendance.map((a) => `
+      <div class="kv"><span>${escapeHtml(a.student_name)} &middot; ${escapeHtml(a.student_phone || "")}</span><span class="muted">${fmtDuration(a.joined_at, a.last_seen_at)}</span></div>
+    `).join("")}`;
+}
+
+// ---------------- Content library ----------------
+async function renderContentTab() {
+  const el = document.getElementById("tab-content");
+  el.innerHTML = `
+    <details style="margin:16px 0;">
+      <summary style="cursor:pointer;font-weight:600;">Add a video manually</summary>
+      <form id="add-video-form" style="margin-top:12px;padding:14px;background:var(--surface-2);border-radius:8px;">
+        <label>Title</label>
+        <input name="title" required>
+        <label>YouTube video ID (e.g. from youtube.com/watch?v=<u>THIS_PART</u>)</label>
+        <input name="youtube_video_id" required>
+        <label>Who can access it?</label>
+        <select name="access_type">
+          <option value="enrolled_only">Registered students only</option>
+          <option value="open_to_all">Everyone</option>
+        </select>
+        <label>Thumbnail (optional — YouTube's own thumbnail is used automatically for live-class recordings)</label>
+        <input type="file" name="thumbnail" accept="image/*">
+        <label>PDF notes (optional)</label>
+        <input type="file" name="pdf" accept="application/pdf">
+        <button style="margin-top:12px;">Add to library</button>
+      </form>
+    </details>
+    <div id="video-grid" class="grid cols-3">Loading…</div>`;
+
+  document.getElementById("add-video-form").onsubmit = async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    await api(`/courses/${SELECTED_COURSE.id}/videos`, { method: "POST", body: fd, isForm: true });
+    e.target.reset();
+    await loadVideoGrid();
+  };
+
+  await loadVideoGrid();
+}
+
+async function loadVideoGrid() {
+  const { videos } = await api(`/courses/${SELECTED_COURSE.id}/videos`);
+  const grid = document.getElementById("video-grid");
+  if (!videos.length) {
+    grid.innerHTML = "<p class='muted small'>No videos yet. They appear here automatically once a live class finishes and YouTube archives the recording — or add one by hand above.</p>";
+    return;
+  }
+  grid.innerHTML = videos.map((v) => `
+    <div class="video-card">
+      <div class="video-thumb" style="${v.thumbnail_path ? `background-image:url('${v.thumbnail_path}')` : ""}">
+        <span class="video-num">#${v.video_number}</span>
+        ${!v.thumbnail_path ? "No thumbnail" : ""}
+      </div>
+      <div class="video-body">
+        <strong>${escapeHtml(v.title)}</strong>
+        <span class="badge ${v.access_type === "open_to_all" ? "open" : "enrolled"}">${v.access_type === "open_to_all" ? "Everyone" : "Registered only"}</span>
+        <span class="small muted">${v.pdf_path ? "📄 PDF attached" : "No PDF yet"}</span>
+        <div class="video-actions">
+          <button class="secondary" data-edit="${v.id}">Edit</button>
+          <a class="btn secondary" target="_blank" href="https://www.youtube.com/watch?v=${v.youtube_video_id}">Watch</a>
+        </div>
+        <form data-edit-form="${v.id}" style="display:none;margin-top:8px;">
+          <label>Video number</label>
+          <input name="video_number" type="number" value="${v.video_number}">
+          <label>Replace/attach PDF</label>
+          <input type="file" name="pdf" accept="application/pdf">
+          <label>Replace thumbnail</label>
+          <input type="file" name="thumbnail" accept="image/*">
+          <button style="margin-top:8px;" type="submit">Save</button>
+        </form>
+      </div>
+    </div>`).join("");
+
+  grid.querySelectorAll("[data-edit]").forEach((btn) => btn.onclick = () => {
+    const form = grid.querySelector(`[data-edit-form="${btn.dataset.edit}"]`);
+    form.style.display = form.style.display === "none" ? "block" : "none";
+  });
+  grid.querySelectorAll("[data-edit-form]").forEach((form) => form.onsubmit = async (e) => {
+    e.preventDefault();
+    const id = form.dataset.editForm;
+    await api(`/videos/${id}`, { method: "PATCH", body: new FormData(form), isForm: true });
+    await loadVideoGrid();
+  });
+}
+
+// ---------------- Students ----------------
+async function renderStudentsTab() {
+  const el = document.getElementById("tab-students");
+  const { students } = await api(`/courses/${SELECTED_COURSE.id}/students`);
+  if (!students.length) { el.innerHTML = "<p class='muted small'>No students registered yet.</p>"; return; }
+  el.innerHTML = "<div style='margin-top:12px;'>" + students.map((s) => `
+    <div class="kv" data-student-row="${s.id}">
+      <span>${escapeHtml(s.name)} &middot; ${escapeHtml(s.phone)}
+        ${s.access_expired
+          ? `<span class="small" style="color:var(--danger);"> &middot; access expired</span>`
+          : s.expires_at ? `<span class="small muted"> &middot; access until ${escapeHtml(s.expires_at.slice(0, 10))}</span>` : `<span class="small muted"> &middot; lifetime access</span>`}
+      </span>
+      <span class="row" style="gap:8px;align-items:center;">
+        <span class="muted">${timeAgo(s.enrolled_at)}</span>
+        ${s.parent_phone
+          ? `<button class="secondary small" data-send-report="${s.id}">Send parent report</button>`
+          : `<span class="small muted" title="Student hasn't added a parent number yet">No parent number</span>`}
+      </span>
+    </div>
+    <div class="small muted" id="report-status-${s.id}" style="display:none;padding:0 0 8px;"></div>
+  `).join("") + "</div>";
+
+  el.querySelectorAll("[data-send-report]").forEach((btn) => {
+    btn.onclick = async () => {
+      const studentId = btn.dataset.sendReport;
+      const statusEl = document.getElementById(`report-status-${studentId}`);
+      btn.disabled = true;
+      btn.textContent = "Sending…";
+      statusEl.style.display = "block";
+      statusEl.textContent = "";
+      try {
+        const { stats } = await api(`/students/${studentId}/parent-report/send`, { method: "POST" });
+        statusEl.textContent = `Sent — ${stats.classesAttended} class(es), ${stats.testsTaken} test(s) this week.`;
+      } catch (err) {
+        statusEl.textContent = "Couldn't send: " + err.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Send parent report";
+      }
+    };
+  });
+}
+
+// ---------------- Advertise ----------------
+// One button generates an AI/templated promo image + ad copy every time —
+// with real Meta Ads credentials connected (see README) it also creates a
+// paused Facebook/Instagram Lead Generation campaign, previewed here
+// before an explicit "Go live" spends any money.
+function renderAdvertiseTab() {
+  const el = document.getElementById("tab-advertise");
+  el.innerHTML = `
+    <div style="margin-top:14px;">
+      <p class="small muted">Generates a promo image and ad copy for this course. Connect Meta Ads (see README) to also create a real, paused ad campaign you can review and launch right here.</p>
+      <button id="advertise-btn">&#128257; Advertise this course</button>
+      <div id="advertise-result" style="margin-top:16px;"></div>
+    </div>`;
+
+  document.getElementById("advertise-btn").onclick = async () => {
+    const btn = document.getElementById("advertise-btn");
+    const resultEl = document.getElementById("advertise-result");
+    btn.disabled = true;
+    btn.textContent = "Generating…";
+    resultEl.innerHTML = "";
+    try {
+      const data = await api(`/courses/${SELECTED_COURSE.id}/advertise`, { method: "POST" });
+      resultEl.innerHTML = `
+        <div class="card" style="max-width:420px;">
+          <img src="${data.image}" alt="Ad creative" style="width:100%;border-radius:8px;border:1px solid var(--line);">
+          <p class="small muted" style="margin-top:6px;">${data.image_mode === "ai" ? "AI-generated" : "Templated"} creative</p>
+          <label style="margin-top:10px;">Ad copy</label>
+          <textarea readonly rows="4" style="width:100%;">${escapeHtml(data.ad_copy)}</textarea>
+          <p class="small muted" style="margin-top:10px;">${escapeHtml(data.message || "")}</p>
+          ${data.mode === "meta" ? `
+            <button id="go-live-btn" style="margin-top:6px;">&#9889; Go live</button>
+            <a class="btn secondary" style="margin-top:6px;" target="_blank" href="${data.campaign.manageUrl}">Open in Ads Manager</a>` : `
+            <a class="btn secondary" style="margin-top:6px;" target="_blank" href="${data.manage_url}">Open Ads Manager &rarr;</a>`}
+          <div id="advertise-error" class="notice error" style="display:none;margin-top:10px;"></div>
+        </div>`;
+      const goLiveBtn = document.getElementById("go-live-btn");
+      if (goLiveBtn) goLiveBtn.onclick = async () => {
+        goLiveBtn.disabled = true;
+        goLiveBtn.textContent = "Publishing…";
+        try {
+          await api(`/courses/${SELECTED_COURSE.id}/advertise/activate`, { method: "POST", body: { campaign_id: data.campaign.campaignId } });
+          goLiveBtn.textContent = "&#9989; Live";
+        } catch (err) {
+          const errEl = document.getElementById("advertise-error");
+          errEl.textContent = err.message;
+          errEl.style.display = "block";
+          goLiveBtn.disabled = false;
+          goLiveBtn.textContent = "&#9889; Go live";
+        }
+      };
+    } catch (err) {
+      resultEl.innerHTML = `<div class="notice error">${escapeHtml(err.message)}</div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "\u{1F501} Advertise this course";
+    }
+  };
+}
+
+// ---------------- Tests ----------------
+let TEST_QUESTION_COUNT = 0;
+
+function renderTestsTab() {
+  const el = document.getElementById("tab-tests");
+  el.innerHTML = `
+    <div style="margin-top:14px;">
+      <div class="card" style="background:var(--surface-2);">
+        <h3>New test</h3>
+        <form id="test-form">
+          <label>Title</label>
+          <input name="title" required placeholder="e.g. Aldol Condensation Mock Test">
+          <label>Description <span class="muted">(optional)</span></label>
+          <input name="description" placeholder="e.g. Chapter 12 practice">
+          <label>Who can take it?</label>
+          <select name="access_type">
+            <option value="enrolled_only">Registered students only</option>
+            <option value="open_to_all">Everyone</option>
+          </select>
+          <div id="question-list" style="margin-top:14px;"></div>
+          <button type="button" class="secondary" id="add-question-btn" style="margin-top:10px;">+ Add question</button>
+          <div id="test-error" class="notice error" style="display:none;margin-top:10px;"></div>
+          <button style="margin-top:14px;">Create test</button>
+        </form>
+      </div>
+      <div id="test-list" style="margin-top:16px;">Loading…</div>
+    </div>`;
+
+  TEST_QUESTION_COUNT = 0;
+  document.getElementById("add-question-btn").onclick = () => addQuestionRow();
+  addQuestionRow(); // start with one
+
+  document.getElementById("test-form").onsubmit = async (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById("test-error");
+    errEl.style.display = "none";
+    const fd = new FormData(e.target);
+    const questions = [];
+    document.querySelectorAll(".question-row").forEach((row) => {
+      const i = row.dataset.i;
+      questions.push({
+        question_text: row.querySelector(`[name="q${i}_text"]`).value,
+        option_a: row.querySelector(`[name="q${i}_a"]`).value,
+        option_b: row.querySelector(`[name="q${i}_b"]`).value,
+        option_c: row.querySelector(`[name="q${i}_c"]`).value,
+        option_d: row.querySelector(`[name="q${i}_d"]`).value,
+        correct_option: row.querySelector(`[name="q${i}_correct"]`).value,
+      });
+    });
+    try {
+      await api(`/courses/${SELECTED_COURSE.id}/tests`, {
+        method: "POST",
+        body: { title: fd.get("title"), description: fd.get("description"), access_type: fd.get("access_type"), questions },
+      });
+      renderTestsTab();
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.style.display = "block";
+    }
+  };
+
+  loadTestList();
+}
+
+function addQuestionRow() {
+  const i = TEST_QUESTION_COUNT++;
+  const wrap = document.createElement("div");
+  wrap.className = "question-row";
+  wrap.dataset.i = i;
+  wrap.style.cssText = "border:1px solid var(--line);border-radius:8px;padding:12px;margin-top:10px;";
+  wrap.innerHTML = `
+    <label>Question ${i + 1}</label>
+    <input name="q${i}_text" required placeholder="Question text">
+    <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
+      <input name="q${i}_a" required placeholder="Option A">
+      <input name="q${i}_b" required placeholder="Option B">
+      <input name="q${i}_c" required placeholder="Option C">
+      <input name="q${i}_d" required placeholder="Option D">
+    </div>
+    <label style="margin-top:6px;">Correct option</label>
+    <select name="q${i}_correct">
+      <option value="a">A</option><option value="b">B</option><option value="c">C</option><option value="d">D</option>
+    </select>`;
+  document.getElementById("question-list").appendChild(wrap);
+}
+
+async function loadTestList() {
+  const { tests } = await api(`/courses/${SELECTED_COURSE.id}/tests`);
+  const el = document.getElementById("test-list");
+  if (!tests.length) { el.innerHTML = "<p class='muted small'>No tests yet — create one above.</p>"; return; }
+  el.innerHTML = tests.map((t) => `
+    <div class="card" style="margin-bottom:10px;">
+      <div class="row between">
+        <div>
+          <strong>${escapeHtml(t.title)}</strong>
+          <div class="small muted" style="margin-top:4px;">${t.question_count} question${t.question_count === 1 ? "" : "s"} &middot; ${t.attempt_count} attempt${t.attempt_count === 1 ? "" : "s"} &middot; ${t.access_type === "open_to_all" ? "Everyone" : "Registered only"}</div>
+        </div>
+        <button class="secondary" data-view-attempts="${t.id}">View attempts</button>
+      </div>
+      <div id="test-attempts-${t.id}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);"></div>
+    </div>`).join("");
+
+  el.querySelectorAll("[data-view-attempts]").forEach((btn) => btn.onclick = () => toggleTestAttempts(Number(btn.dataset.viewAttempts)));
+}
+
+async function toggleTestAttempts(testId) {
+  const pane = document.getElementById("test-attempts-" + testId);
+  const open = pane.style.display !== "none";
+  if (open) { pane.style.display = "none"; return; }
+  pane.style.display = "block";
+  pane.innerHTML = "<p class='small muted'>Loading…</p>";
+  const { attempts } = await api(`/tests/${testId}/attempts`);
+  if (!attempts.length) { pane.innerHTML = "<p class='small muted'>No attempts yet.</p>"; return; }
+  pane.innerHTML = attempts.map((a) => `
+    <div class="kv"><span>${escapeHtml(a.student_name)} &middot; ${escapeHtml(a.student_phone || "")}</span><span class="muted">${a.score}/${a.total_questions}</span></div>
+  `).join("");
+}
+
+init();
+</script>
+</body>
+</html>

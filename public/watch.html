@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live class — MoleQule Prep</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="container row between">
+    <a class="brand" href="/"><span class="dot"></span> MoleQule Prep</a>
+  </div>
+</header>
+<main class="container" style="max-width:760px;">
+  <div id="pane" class="card"><p class="muted">Loading…</p></div>
+</main>
+<script src="/js/api.js"></script>
+<script src="/js/track.js"></script>
+<script>
+trackEvent("visit");
+(async () => {
+  const id = new URLSearchParams(location.search).get("live");
+  const pane = document.getElementById("pane");
+  if (!id) { pane.innerHTML = "<p class='muted'>No live class specified.</p>"; return; }
+
+  const user = await currentUser();
+  if (!user) {
+    pane.innerHTML = `<p class="muted">Log in to view this class.</p><a class="btn" href="/?next=/watch.html?live=${id}">Log in</a>`;
+    return;
+  }
+
+  try {
+    const { live_class, watch_url } = await api(`/live-classes/${id}`);
+    if (live_class.status === "live" && watch_url) {
+      const videoId = watch_url.split("v=")[1];
+      pane.innerHTML = `
+        <h2>${escapeHtml(live_class.title)}</h2>
+        <div style="aspect-ratio:16/9;">
+          <iframe width="100%" height="100%" src="https://www.youtube.com/embed/${videoId}?autoplay=1" title="Live class" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+        </div>`;
+      // Attendance: one ping now, then every ~20s while this tab stays
+      // open — lets the teacher see roughly who watched and for how long
+      // (see GET /api/live-classes/:id/attendance). Silently ignored if
+      // it fails; never worth interrupting the class over.
+      if (user.role === "student") {
+        const ping = () => api(`/live-classes/${id}/attendance/ping`, { method: "POST" }).catch(() => {});
+        ping();
+        setInterval(ping, 20000);
+      }
+    } else if (live_class.status === "scheduled") {
+      pane.innerHTML = `<h2>${escapeHtml(live_class.title)}</h2><p class="notice info">This class hasn't started yet — you'll get a notification the moment it goes live.</p>`;
+    } else {
+      pane.innerHTML = `<h2>${escapeHtml(live_class.title)}</h2><p class="notice info">This class has ended. The recording will appear in the course's video library shortly.</p><a class="btn secondary" href="/student.html?course=${live_class.course_id}">Back to course</a>`;
+    }
+  } catch (err) {
+    pane.innerHTML = `<p class="notice error">${escapeHtml(err.message)}</p>`;
+  }
+})();
+</script>
+</body>
+</html>

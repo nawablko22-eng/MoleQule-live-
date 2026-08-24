@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test — MoleQule Prep</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .q-card{margin-bottom:14px;}
+  .q-num{font-size:.76rem;color:var(--ink-soft);font-weight:700;text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;}
+  .q-text{font-weight:600;margin-bottom:10px;}
+  .option-row{display:block;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:8px;cursor:pointer;font-size:.9rem;}
+  .option-row:hover{border-color:var(--accent);}
+  .option-row input{margin-right:8px;}
+  .option-row.correct{border-color:var(--accent);background:var(--accent-tint);}
+  .option-row.wrong{border-color:var(--danger);background:var(--danger-tint);}
+  .score-box{text-align:center;padding:28px 20px;}
+  .score-box .big{font-size:2.4rem;font-weight:800;color:var(--accent-strong);}
+  .leaderboard-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:.9rem;}
+  .leaderboard-row:last-child{border-bottom:none;}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="container row between">
+    <a class="brand" href="/student.html"><span class="dot"></span> MoleQule Prep</a>
+    <a href="/student.html" class="small muted" style="text-decoration:none;">&larr; Back to courses</a>
+  </div>
+</header>
+
+<main class="container" style="max-width:640px;">
+  <div id="pane"><p class="muted">Loading…</p></div>
+</main>
+
+<script src="/js/api.js"></script>
+<script>
+const testId = new URLSearchParams(location.search).get("id");
+let QUESTIONS = [];
+
+async function init() {
+  const pane = document.getElementById("pane");
+  const user = await currentUser();
+  if (!user || user.role !== "student") { location.href = `/index.html?next=/test.html?id=${testId}`; return; }
+  if (!testId) { pane.innerHTML = "<p class='notice error'>No test specified.</p>"; return; }
+
+  try {
+    const { test, questions } = await api(`/tests/${testId}`);
+    QUESTIONS = questions;
+    pane.innerHTML = `
+      <h1 style="margin-bottom:4px;">${escapeHtml(test.title)}</h1>
+      <p class="small muted" style="margin-bottom:18px;">${escapeHtml(test.description || "")}</p>
+      <form id="test-form">
+        ${questions.map((q, i) => `
+          <div class="card q-card">
+            <div class="q-num">Question ${i + 1} of ${questions.length}</div>
+            <div class="q-text">${escapeHtml(q.question_text)}</div>
+            ${["a","b","c","d"].map((k) => `
+              <label class="option-row" data-q="${q.id}" data-opt="${k}">
+                <input type="radio" name="q${q.id}" value="${k}" required>
+                ${escapeHtml(q["option_" + k])}
+              </label>`).join("")}
+          </div>`).join("")}
+        <button style="width:100%;justify-content:center;padding:13px;">Submit test</button>
+      </form>`;
+
+    document.getElementById("test-form").onsubmit = submitTest;
+  } catch (err) {
+    pane.innerHTML = `<p class="notice error">${escapeHtml(err.message)}</p>`;
+  }
+}
+
+async function submitTest(e) {
+  e.preventDefault();
+  const answers = QUESTIONS.map((q) => {
+    const checked = document.querySelector(`input[name="q${q.id}"]:checked`);
+    return { question_id: q.id, selected_option: checked ? checked.value : null };
+  });
+  const { score, total_questions, results } = await api(`/tests/${testId}/attempt`, { method: "POST", body: { answers } });
+
+  // Mark each option row correct/wrong right on the question card, then
+  // show the score + leaderboard above it.
+  results.forEach((r) => {
+    document.querySelectorAll(`[data-q="${r.question_id}"]`).forEach((row) => {
+      if (row.dataset.opt === r.correct_option) row.classList.add("correct");
+      else if (row.dataset.opt === r.selected_option && !r.is_correct) row.classList.add("wrong");
+    });
+  });
+  document.querySelectorAll("#test-form input").forEach((el) => el.disabled = true);
+  document.querySelector("#test-form button").remove();
+
+  const { leaderboard } = await api(`/tests/${testId}/leaderboard`);
+  const scoreBox = document.createElement("div");
+  scoreBox.className = "card score-box";
+  scoreBox.innerHTML = `
+    <div class="big">${score} / ${total_questions}</div>
+    <p class="small muted" style="margin-top:4px;">Correct answers are highlighted below.</p>
+    <h3 style="margin-top:20px;">Leaderboard</h3>
+    ${leaderboard.map((l, i) => `<div class="leaderboard-row"><span>#${i + 1} ${escapeHtml(l.student_name)}</span><span>${l.best_score}/${l.total_questions}</span></div>`).join("") || "<p class='small muted'>No scores yet.</p>"}
+    <a class="btn" style="margin-top:16px;" href="/student.html">Back to courses</a>`;
+  document.getElementById("pane").prepend(scoreBox);
+  scoreBox.scrollIntoView({ behavior: "smooth" });
+}
+
+init();
+</script>
+</body>
+</html>

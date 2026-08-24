@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MoleQule Prep</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .login-hero{text-align:center;margin:36px 0 22px;}
+  .login-hero .float-brand{
+    display:inline-flex;align-items:center;gap:10px;font-size:1.7rem;font-weight:800;
+    color:var(--ink);animation:floatBrand 3.2s ease-in-out infinite;
+  }
+  .login-hero .float-brand .dot{width:14px;height:14px;border-radius:50%;background:var(--accent);}
+  .login-hero .tagline{margin-top:8px;font-size:.9rem;font-weight:700;letter-spacing:.03em;color:var(--accent-strong);text-transform:uppercase;}
+  @keyframes floatBrand{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
+
+  .google-btn{
+    display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
+    background:#fff;color:#3c4043;border:1px solid var(--line);border-radius:8px;
+    padding:10px 16px;font-size:.9rem;font-weight:600;text-decoration:none;cursor:pointer;
+    box-shadow:0 3px 0 var(--line), 0 5px 12px rgba(16,34,29,.10);
+    transition:transform .08s ease, box-shadow .08s ease;
+  }
+  .google-btn:hover{background:#f7f7f7;}
+  .google-btn:active{transform:translateY(3px);box-shadow:0 0 0 var(--line);}
+  .google-btn svg{width:18px;height:18px;flex:none;}
+  .or-divider{display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--ink-faint);font-size:.78rem;}
+  .or-divider::before,.or-divider::after{content:"";flex:1;height:1px;background:var(--line);}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="container row between">
+    <a class="brand" href="/home.html"><span class="dot"></span> MoleQule Prep</a>
+    <a href="/home.html" class="small muted" style="text-decoration:none;">&larr; Back to home</a>
+  </div>
+</header>
+
+<main class="container" style="max-width:440px;">
+  <div class="login-hero">
+    <div class="float-brand"><span class="dot"></span>MoleQule Prep</div>
+    <div class="tagline">NEET &middot; JEE &middot; Govt Exam Preparation</div>
+  </div>
+  <div class="card">
+    <div class="tabs">
+      <button id="tab-login" class="active">Log in</button>
+      <button id="tab-register">Create account</button>
+    </div>
+
+    <a href="/api/auth/google/start" id="google-btn" class="google-btn">
+      <svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l5.7-5.7C34.6 6 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l5.7-5.7C34.6 6 29.6 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.5 0 10.4-1.9 14.3-5.1l-6.6-5.4C29.6 35.4 27 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.6 5.1C9.6 39.6 16.3 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.7l6.6 5.4C41.4 35.9 44 30.3 44 24c0-1.3-.1-2.7-.4-3.5z"/></svg>
+      Continue with Google
+    </a>
+    <div class="or-divider">or</div>
+
+    <form id="login-form">
+      <label>Phone number</label>
+      <input name="phone" required placeholder="98765 43210">
+      <label>Password</label>
+      <input name="password" type="password" required>
+      <div id="login-error" class="notice error" style="display:none;"></div>
+      <button style="margin-top:16px;width:100%;justify-content:center;">Log in</button>
+      <p class="small" style="text-align:right;margin-top:10px;"><a href="#" id="forgot-link">Forgot password?</a></p>
+    </form>
+
+    <form id="forgot-form" style="display:none;">
+      <label>Email on your account</label>
+      <input name="email" type="email" required placeholder="you@example.com">
+      <div id="forgot-error" class="notice error" style="display:none;"></div>
+      <div id="forgot-success" class="notice info" style="display:none;"></div>
+      <button style="margin-top:16px;width:100%;justify-content:center;">Send reset link</button>
+      <p class="small" style="text-align:center;margin-top:10px;"><a href="#" id="back-to-login-link">&larr; Back to log in</a></p>
+    </form>
+
+    <form id="register-form" style="display:none;">
+      <label>I am a</label>
+      <select name="role">
+        <option value="student">Student</option>
+        <option value="teacher">Teacher</option>
+      </select>
+      <label>Full name</label>
+      <input name="name" required>
+      <label>Phone number</label>
+      <input name="phone" required placeholder="98765 43210">
+      <label>Password</label>
+      <input name="password" type="password" required minlength="6">
+      <label>Referral code <span class="muted">(optional)</span></label>
+      <input name="referral_code" placeholder="e.g. AB12CD" style="text-transform:uppercase;">
+      <div id="register-error" class="notice error" style="display:none;"></div>
+      <div id="register-success" class="notice info" style="display:none;"></div>
+      <button style="margin-top:16px;width:100%;justify-content:center;">Create account</button>
+    </form>
+  </div>
+  <p class="small muted">Teachers get a dashboard to schedule live classes and manage course content. Students browse courses, register, and get notified the moment a class goes live.</p>
+</main>
+
+<script src="/js/api.js"></script>
+<script src="/js/track.js"></script>
+<script>
+trackEvent("visit");
+const tabLogin = document.getElementById("tab-login");
+const tabRegister = document.getElementById("tab-register");
+const loginForm = document.getElementById("login-form");
+const registerForm = document.getElementById("register-form");
+const forgotForm = document.getElementById("forgot-form");
+const googleBtn = document.getElementById("google-btn");
+const roleSelect = registerForm.querySelector('select[name="role"]');
+
+// A shareable referral link (e.g. from a student's "invite friends"
+// banner) can carry ?ref=CODE — prefill it so signing up from that link
+// takes one less step.
+const refFromUrl = new URLSearchParams(location.search).get("ref");
+if (refFromUrl) {
+  registerForm.querySelector('input[name="referral_code"]').value = refFromUrl.toUpperCase();
+}
+
+document.getElementById("forgot-link").onclick = (e) => {
+  e.preventDefault();
+  loginForm.style.display = "none";
+  forgotForm.style.display = "block";
+};
+document.getElementById("back-to-login-link").onclick = (e) => {
+  e.preventDefault();
+  forgotForm.style.display = "none";
+  loginForm.style.display = "block";
+};
+forgotForm.onsubmit = async (e) => {
+  e.preventDefault();
+  const fd = Object.fromEntries(new FormData(forgotForm));
+  const errEl = document.getElementById("forgot-error");
+  const okEl = document.getElementById("forgot-success");
+  errEl.style.display = "none";
+  okEl.style.display = "none";
+  try {
+    const { message } = await api("/auth/forgot-password", { method: "POST", body: fd });
+    okEl.textContent = message;
+    okEl.style.display = "block";
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.style.display = "block";
+  }
+};
+
+// Role only matters if this Google sign-in ends up creating a brand-new
+// account — an existing one keeps logging in with its real role. `next`
+// carries through so e.g. the cart sending someone here comes back to
+// the cart afterwards, not just their dashboard.
+function updateGoogleBtnHref() {
+  const params = new URLSearchParams({ role: roleSelect.value });
+  const next = new URLSearchParams(location.search).get("next");
+  if (next) params.set("next", next);
+  googleBtn.href = "/api/auth/google/start?" + params.toString();
+}
+roleSelect.onchange = updateGoogleBtnHref;
+updateGoogleBtnHref();
+
+tabLogin.onclick = () => { tabLogin.classList.add("active"); tabRegister.classList.remove("active"); loginForm.style.display="block"; forgotForm.style.display="none"; registerForm.style.display="none"; updateGoogleBtnHref(); };
+tabRegister.onclick = () => { tabRegister.classList.add("active"); tabLogin.classList.remove("active"); registerForm.style.display="block"; forgotForm.style.display="none"; loginForm.style.display="none"; updateGoogleBtnHref(); };
+
+if (refFromUrl) tabRegister.click();
+
+function afterLogin(user) {
+  const next = new URLSearchParams(location.search).get("next");
+  location.href = next || (user.role === "teacher" ? "/teacher.html" : "/student.html");
+}
+
+loginForm.onsubmit = async (e) => {
+  e.preventDefault();
+  const fd = new FormData(loginForm);
+  const errEl = document.getElementById("login-error");
+  errEl.style.display = "none";
+  try {
+    const { user } = await api("/auth/login", { method: "POST", body: Object.fromEntries(fd) });
+    afterLogin(user);
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.style.display = "block";
+  }
+};
+
+registerForm.onsubmit = async (e) => {
+  e.preventDefault();
+  const fd = new FormData(registerForm);
+  const errEl = document.getElementById("register-error");
+  const okEl = document.getElementById("register-success");
+  errEl.style.display = "none";
+  try {
+    const { user, welcome_coupon, welcome_discount_percent } = await api("/auth/register", { method: "POST", body: Object.fromEntries(fd) });
+    if (welcome_coupon) {
+      okEl.textContent = `🎉 Referral applied — here's a ${welcome_discount_percent}% off coupon for your first purchase: ${welcome_coupon}`;
+      okEl.style.display = "block";
+      setTimeout(() => afterLogin(user), 2600);
+    } else {
+      afterLogin(user);
+    }
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.style.display = "block";
+  }
+};
+
+(async () => {
+  const user = await currentUser();
+  if (user) afterLogin(user);
+})();
+</script>
+</body>
+</html>

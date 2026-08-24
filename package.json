@@ -1,0 +1,25 @@
+{
+  "name": "molequle-live-platform",
+  "version": "1.0.0",
+  "description": "Course-linked live classes with YouTube auto-archive, enrolled/open access control, web push notifications, and a video+PDF content library.",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "generate-vapid": "node server/generate-vapid.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.3.0",
+    "cookie-parser": "^1.4.6",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "googleapis": "^140.0.1",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.0",
+    "nodemailer": "^9.0.5",
+    "razorpay": "^2.9.8",
+    "sharp": "^0.33.4",
+    "web-push": "^3.6.7"
+  }
+}
