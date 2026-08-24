@@ -3,9 +3,17 @@
 // since all access goes through the small helper functions below.
 
 const path = require("path");
+const fs = require("fs");
 const Database = require("better-sqlite3");
 
 const dbPath = path.join(__dirname, "..", "data", "app.db");
+// The data/ folder ships with a .gitkeep so it survives a normal git clone,
+// but some deploy paths (a zip re-upload, a host that only materializes
+// files it sees referenced, an empty Persistent Disk mount) can still hand
+// us a fresh filesystem without it -- better-sqlite3 fails with ENOENT
+// opening a file whose parent directory doesn't exist yet, so create it
+// defensively before ever opening the database.
+fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 const db = new Database(dbPath);
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
