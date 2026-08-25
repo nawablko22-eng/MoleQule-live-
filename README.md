@@ -472,7 +472,7 @@ Every course's teacher dashboard page has an **Advertise** tab. Click
 setup required:
 
 - Generates a promotional image (a clean templated graphic — course
-  title, price, MoleQule Prep branding — or, if you've added
+  title, price, MoleQule Live branding — or, if you've added
   `OPENAI_API_KEY`, a real AI-generated photo instead).
 - Writes ad copy for the course.
 
@@ -486,7 +486,7 @@ You get the image + copy to download and paste into
 1. In [Meta for Developers](https://developers.facebook.com), make sure
    your app has **Marketing API** access, and you have: a **Business
    Manager**, an **Ad Account** with a payment method on it, and a
-   **Facebook Page** for MoleQule Prep connected to that Business Manager.
+   **Facebook Page** for MoleQule Live connected to that Business Manager.
 2. Generate a token with `ads_management` and `pages_manage_ads`
    permission (Business Settings → System Users → generate token — the
    same token type used for WhatsApp above also works if scoped right).
@@ -588,7 +588,7 @@ plain language; the automatic weekly job logs it and quietly retries on
 its next poll. **To make this actually deliver in production**, apply
 for a WhatsApp message template in Meta Business Manager (Business
 Settings → WhatsApp Manager → Message Templates) — something like
-"Hi, here's {{name}}'s weekly update from MoleQule Prep: {{summary}}" —
+"Hi, here's {{name}}'s weekly update from MoleQule Live: {{summary}}" —
 and once approved, swap `whatsapp.sendMessage`'s plain-text call in
 `parentReports.js` for a template send. That template-approval step is
 on Meta's side and isn't something this app can do for you (same kind of

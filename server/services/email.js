@@ -30,16 +30,16 @@ function transport() {
 async function sendMail({ to, subject, html, text }) {
   if (!isConfigured()) throw new Error("Email isn't configured — see .env.example (SMTP_HOST/SMTP_USER/SMTP_PASS).");
   const from = process.env.SMTP_FROM || process.env.SMTP_USER;
-  await transport().sendMail({ from: `MoleQule Prep <${from}>`, to, subject, html, text });
+  await transport().sendMail({ from: `MoleQule Live <${from}>`, to, subject, html, text });
 }
 
 async function sendPasswordResetEmail(toEmail, resetUrl) {
   await sendMail({
     to: toEmail,
-    subject: "Reset your MoleQule Prep password",
+    subject: "Reset your MoleQule Live password",
     text: `Reset your password: ${resetUrl}\n\nThis link works for 1 hour. If you didn't ask for this, you can ignore this email.`,
     html: `
-      <p>Someone (hopefully you) asked to reset the password on your MoleQule Prep account.</p>
+      <p>Someone (hopefully you) asked to reset the password on your MoleQule Live account.</p>
       <p><a href="${resetUrl}" style="background:#0E7A5F;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block;">Reset password</a></p>
       <p style="color:#666;font-size:.85em;">This link works for 1 hour. If you didn't ask for this, you can safely ignore this email — your password won't change.</p>
     `,

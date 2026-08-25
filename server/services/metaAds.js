@@ -55,7 +55,7 @@ async function createLeadCampaign(course, imageBuffer, adCopyText, courseUrl) {
   const imageHash = await uploadImage(imageBuffer, `course-${course.id}.png`);
 
   const campaign = await graphPost(`/${actId()}/campaigns`, {
-    name: `MoleQule Prep — ${course.title}`,
+    name: `MoleQule Live — ${course.title}`,
     objective: "OUTCOME_LEADS",
     status: "PAUSED",
     special_ad_categories: [],

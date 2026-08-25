@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Your Cart — MoleQule Prep</title>
+<title>Your Cart — MoleQule Live</title>
 <link rel="stylesheet" href="/css/style.css">
 <style>
   .cart-item{display:flex;gap:14px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line);}
@@ -32,7 +32,7 @@
 <body>
 <header class="topbar">
   <div class="container row between">
-    <a class="brand" href="/home.html"><span class="dot"></span> MoleQule Prep</a>
+    <a class="brand" href="/home.html"><span class="dot"></span> MoleQule Live</a>
     <a href="/home.html" class="small muted" style="text-decoration:none;">&larr; Back to home</a>
   </div>
 </header>
@@ -232,7 +232,7 @@ async function startCheckout() {
       amount: result.amount,
       currency: result.currency,
       order_id: result.razorpay_order_id,
-      name: "MoleQule Prep",
+      name: "MoleQule Live",
       description: "Course purchase",
       prefill: { name: CURRENT_USER?.name || "", email: CURRENT_USER?.email || "", contact: CURRENT_USER?.phone || "" },
       theme: { color: "#0E7A5F" },

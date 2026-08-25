@@ -2,7 +2,7 @@
 // "Advertise this course" produces something usable the moment you click
 // it, no setup required:
 //   - No OPENAI_API_KEY: a clean templated graphic — course title, price,
-//     MoleQule Prep branding on a gradient background — rendered with
+//     MoleQule Live branding on a gradient background — rendered with
 //     `sharp` (already a dependency here, used for video thumbnails).
 //   - OPENAI_API_KEY set: a real AI-generated photo/illustration for the
 //     course instead, via OpenAI's Images API.
@@ -59,7 +59,7 @@ async function templateImage(course) {
       </defs>
       <rect width="1080" height="1080" fill="url(#bg)"/>
       <circle cx="100" cy="88" r="9" fill="#ffffff" opacity="0.9"/>
-      <text x="122" y="99" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#ffffff">MoleQule Prep</text>
+      <text x="122" y="99" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#ffffff">MoleQule Live</text>
       <text x="90" y="${540 - titleLines.length * 35}" font-family="Arial, sans-serif" font-size="70" font-weight="800" fill="#ffffff">${titleLines.map((l, i) => `<tspan x="90" dy="${i === 0 ? 0 : 78}">${escapeXml(l)}</tspan>`).join("")}</text>
       <text x="90" y="920" font-family="Arial, sans-serif" font-size="58" font-weight="700" fill="#ffffff">${escapeXml(priceLine)}</text>
       <rect x="90" y="960" width="300" height="4" fill="#ffffff" opacity="0.6"/>
@@ -105,7 +105,7 @@ async function generateImage(course) {
 
 function adCopy(course) {
   const priceLine = course.price > 0 ? `Enroll for just ₹${course.price}.` : "Register free.";
-  return `🧪 ${course.title} — MoleQule Prep\n${course.description || "Live classes, video library, and doubt-solving with YK Sir."}\n${priceLine} Limited seats, message us to know more.`;
+  return `🧪 ${course.title} — MoleQule Live\n${course.description || "Live classes, video library, and doubt-solving with YK Sir."}\n${priceLine} Limited seats, message us to know more.`;
 }
 
 module.exports = { isAiConfigured, generateImage, adCopy };

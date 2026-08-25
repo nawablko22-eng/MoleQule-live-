@@ -75,7 +75,7 @@ async function handleUpdate(update) {
     recordInbound(conversationId, "(started the bot)");
     try {
       await sendMessage(chatId, studentId
-        ? "Linked to your MoleQule Prep account — message here any time and YK Sir's team will reply."
+        ? "Linked to your MoleQule Live account — message here any time and YK Sir's team will reply."
         : "Welcome! Message here any time and YK Sir's team will reply. Open this link from your logged-in course page to link this chat to your account.");
     } catch { /* best-effort — DB record already saved either way */ }
     return;

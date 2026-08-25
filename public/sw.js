@@ -2,7 +2,7 @@
 // shows a native OS notification. Clicking it opens (or focuses) the
 // live class's watch page.
 self.addEventListener("push", (event) => {
-  let data = { title: "MoleQule Prep", body: "You have a new update.", url: "/" };
+  let data = { title: "MoleQule Live", body: "You have a new update.", url: "/" };
   try { data = event.data.json(); } catch { /* plain-text fallback */ }
   event.waitUntil(
     self.registration.showNotification(data.title, {

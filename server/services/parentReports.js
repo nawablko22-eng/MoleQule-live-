@@ -50,7 +50,7 @@ function buildStats(studentId) {
 
 function reportText(student, stats) {
   const lines = [
-    `MoleQule Prep -- weekly update for ${student.name}`,
+    `MoleQule Live -- weekly update for ${student.name}`,
     `Classes attended this week: ${stats.classesAttended}`,
     stats.testsTaken > 0
       ? `Tests taken: ${stats.testsTaken} (average score: ${stats.avgPct}%)`
